@@ -1,0 +1,10 @@
+{
+  "name": "dj-music-manager",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "tauri": "node frontend/node_modules/@tauri-apps/cli/tauri.js",
+    "dev": "node frontend/node_modules/@tauri-apps/cli/tauri.js dev",
+    "build": "node frontend/node_modules/@tauri-apps/cli/tauri.js build"
+  }
+}

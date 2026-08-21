@@ -1,0 +1,15 @@
+Initial commit: DJ Music Manager scaffold with Tauri 2 + Angular + SQLite.
+
+Core features:
+- Library scanner with walkdir + lofty metadata (title, artist, album,
+  genre, year, BPM, key, bitrate, duration)
+- SQLite library database with FTS5 full-text search
+- Lazy virtual scroll table with server-side sorting
+- Audio preview player with wavesurfer.js via Tauri asset protocol
+- Metadata editor (single + batch) writing tags back to files
+- Persistent library folders with auto-rescan on startup
+- PrimeNG UI with dark theme
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

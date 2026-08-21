@@ -1,0 +1,26 @@
+<div class="app-shell">
+  <div class="app-main">
+    <aside class="sidebar">
+      <div class="brand">
+        <i class="pi pi-headphones"></i>
+        <span>DJ Music Manager</span>
+      </div>
+      <nav>
+        @for (item of navItems; track item.route) {
+          <a
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            class="nav-item"
+          >
+            <i [class]="item.icon"></i>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      </nav>
+    </aside>
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+  <app-player-bar />
+</div>

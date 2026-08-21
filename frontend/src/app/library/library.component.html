@@ -1,0 +1,137 @@
+<p-toast />
+
+<div class="library-toolbar">
+  <p-button
+    icon="pi pi-folder-plus"
+    label="Añadir carpeta"
+    [loading]="scanning()"
+    (onClick)="addFolder()"
+  />
+  @if (selectedTracks().length > 0) {
+    <p-button
+      icon="pi pi-pencil"
+      [label]="'Editar ' + selectedTracks().length + (selectedTracks().length === 1 ? ' track' : ' tracks')"
+      (onClick)="openEditor()"
+      class="edit-button"
+    />
+  }
+  <input
+    pInputText
+    type="text"
+    placeholder="Buscar por título, artista, álbum, género…"
+    class="search-input"
+    [(ngModel)]="searchText"
+    (ngModelChange)="onSearchChange($event)"
+  />
+  <span class="track-count">{{ totalCount() }} tracks</span>
+</div>
+
+@if (scanning() && scanProgress(); as p) {
+  <div class="scan-progress">
+    <p-progressbar [value]="progressPercent()" />
+    <small>{{ p.current }} / {{ p.total }} — {{ p.current_file }}</small>
+  </div>
+}
+
+<p-table
+  #dt
+  [value]="tracks()"
+  [lazy]="true"
+  (onLazyLoad)="loadChunk($event)"
+  [totalRecords]="totalCount()"
+  [loading]="loading()"
+  [scrollable]="true"
+  scrollHeight="flex"
+  [virtualScroll]="true"
+  [virtualScrollItemSize]="rowHeight"
+  [rows]="pageSize"
+  styleClass="p-datatable-sm library-table"
+  [(selection)]="selectedTracks"
+  selectionMode="multiple"
+  dataKey="id"
+  [metaKeySelection]="true"
+>
+  <ng-template #header>
+    <tr>
+      <th style="width: 2.5rem">
+        <p-tableHeaderCheckbox />
+      </th>
+      <th pSortableColumn="title" style="width: 24%">
+        Título <p-sortIcon field="title" />
+      </th>
+      <th pSortableColumn="artist" style="width: 17%">
+        Artista <p-sortIcon field="artist" />
+      </th>
+      <th pSortableColumn="album" style="width: 15%">
+        Álbum <p-sortIcon field="album" />
+      </th>
+      <th pSortableColumn="genre" style="width: 10%">
+        Género <p-sortIcon field="genre" />
+      </th>
+      <th pSortableColumn="bpm" style="width: 7%">
+        BPM <p-sortIcon field="bpm" />
+      </th>
+      <th pSortableColumn="initial_key" style="width: 7%">
+        Key <p-sortIcon field="initial_key" />
+      </th>
+      <th pSortableColumn="duration_secs" style="width: 8%">
+        Duración <p-sortIcon field="duration_secs" />
+      </th>
+      <th pSortableColumn="bitrate_kbps" style="width: 8%">
+        Bitrate <p-sortIcon field="bitrate_kbps" />
+      </th>
+    </tr>
+  </ng-template>
+  <ng-template #body let-track>
+    <tr
+      [pSelectableRow]="track"
+      [style.height.px]="rowHeight"
+      (dblclick)="track && playTrack(track)"
+    >
+      @if (track) {
+        <td>
+          <p-tableCheckbox [value]="track" />
+        </td>
+        <td class="cell-title">{{ track.title || track.filename }}</td>
+        <td>{{ track.artist || "—" }}</td>
+        <td>{{ track.album || "—" }}</td>
+        <td>{{ track.genre || "—" }}</td>
+        <td>{{ track.bpm ? (track.bpm | number: "1.0-1") : "—" }}</td>
+        <td>
+          @if (track.initial_key) {
+            <p-tag [value]="track.initial_key" severity="info" />
+          } @else {
+            —
+          }
+        </td>
+        <td>{{ formatDuration(track.duration_secs) }}</td>
+        <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
+      } @else {
+        <td><p-skeleton height="1rem" /></td>
+        <td colspan="8"><p-skeleton height="1rem" /></td>
+      }
+    </tr>
+  </ng-template>
+  <ng-template #loadingbody>
+    <tr [style.height.px]="rowHeight">
+      <td colspan="9"><p-skeleton height="1rem" /></td>
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="9" class="empty-message">
+        @if (searchText) {
+          Sin resultados para «{{ searchText }}».
+        } @else {
+          Tu biblioteca está vacía. Usa «Añadir carpeta» para escanear tu música.
+        }
+      </td>
+    </tr>
+  </ng-template>
+</p-table>
+
+<app-metadata-editor
+  [(visible)]="editorVisible"
+  [tracks]="selectedTracks()"
+  (saved)="saveMetadata($event)"
+/>

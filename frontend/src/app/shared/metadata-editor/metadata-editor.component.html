@@ -1,0 +1,92 @@
+<p-dialog
+  [(visible)]="visible"
+  [modal]="false"
+  [draggable]="true"
+  [resizable]="false"
+  [dismissableMask]="true"
+  [style]="{ width: '440px' }"
+  [header]="isSingle() ? 'Editar metadata' : 'Editar ' + tracks().length + ' tracks'"
+>
+  <div class="editor-fields">
+    @if (isSingle()) {
+      <div class="field">
+        <label>Título</label>
+        <input pInputText [(ngModel)]="title" [placeholder]="'Título'" />
+      </div>
+    }
+
+    <div class="field">
+      <label>Artista</label>
+      <input pInputText [(ngModel)]="artist" [placeholder]="'Sin cambios'" />
+    </div>
+
+    <div class="field">
+      <label>Álbum</label>
+      <input pInputText [(ngModel)]="album" [placeholder]="'Sin cambios'" />
+    </div>
+
+    <div class="field">
+      <label>Género</label>
+      <input pInputText [(ngModel)]="genre" [placeholder]="'Sin cambios'" />
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Año</label>
+        <p-inputNumber
+          [(ngModel)]="year"
+          [min]="1800"
+          [max]="2100"
+          [useGrouping]="false"
+          [placeholder]="'Sin cambios'"
+          [showButtons]="false"
+        />
+      </div>
+
+      @if (isSingle()) {
+        <div class="field">
+          <label>BPM</label>
+          <p-inputNumber
+            [(ngModel)]="bpm"
+            [minFractionDigits]="0"
+            [maxFractionDigits]="2"
+            [placeholder]="'Sin cambios'"
+            [showButtons]="false"
+          />
+        </div>
+      }
+    </div>
+
+    @if (isSingle()) {
+      <div class="field">
+        <label>Key</label>
+        <input pInputText [(ngModel)]="initialKey" [placeholder]="'Ej: 8B, Dm, C#min'" />
+      </div>
+    }
+
+    @if (!isSingle()) {
+      <p-tag
+        icon="pi pi-info-circle"
+        value="En batch solo se actualizan los campos que escribas. Título, BPM y Key no están disponibles en edición múltiple."
+        severity="info"
+      />
+    }
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="editor-footer">
+      <p-button
+        label="Cancelar"
+        [outlined]="true"
+        severity="secondary"
+        (onClick)="visible.set(false)"
+      />
+      <p-button
+        label="Guardar"
+        icon="pi pi-check"
+        [loading]="loading()"
+        (onClick)="onSave()"
+      />
+    </div>
+  </ng-template>
+</p-dialog>

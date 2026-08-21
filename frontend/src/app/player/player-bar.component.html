@@ -1,0 +1,40 @@
+<div class="player-bar" [class.hidden]="!track()">
+  <div class="track-info">
+    @if (track(); as t) {
+      <span class="title">{{ t.title || t.filename }}</span>
+      <span class="artist">{{ t.artist || "—" }}</span>
+    }
+  </div>
+
+  <p-button
+    [icon]="playing() ? 'pi pi-pause' : 'pi pi-play'"
+    [rounded]="true"
+    [disabled]="loading() || !track()"
+    (onClick)="togglePlay()"
+  />
+
+  <span class="time">{{ formatTime(currentTime()) }}</span>
+
+  <div class="waveform-wrap">
+    <div #waveform class="waveform"></div>
+    @if (loading()) {
+      <span class="status">Cargando waveform…</span>
+    }
+    @if (error(); as err) {
+      <span class="status error">{{ err }}</span>
+    }
+  </div>
+
+  <span class="time">{{ formatTime(duration()) }}</span>
+
+  <div class="volume">
+    <i class="pi pi-volume-up"></i>
+    <p-slider
+      [(ngModel)]="volume"
+      [min]="0"
+      [max]="100"
+      (onChange)="onVolumeChange(volume)"
+      styleClass="volume-slider"
+    />
+  </div>
+</div>

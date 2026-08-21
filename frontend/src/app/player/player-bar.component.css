@@ -1,0 +1,85 @@
+.player-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  height: 72px;
+  padding: 0 1rem;
+  border-top: 1px solid var(--p-content-border-color, #333);
+  background: var(--p-content-background, #18181b);
+}
+
+.player-bar.hidden {
+  display: none;
+}
+
+.track-info {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  min-width: 0;
+}
+
+.track-info .title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-info .artist {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.waveform-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.waveform {
+  width: 100%;
+}
+
+.status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.status.error {
+  color: var(--p-red-400, #f87171);
+  opacity: 1;
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 140px;
+}
+
+.volume i {
+  opacity: 0.7;
+}
+
+.volume p-slider {
+  flex: 1;
+  display: block;
+}
