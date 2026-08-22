@@ -20,6 +20,44 @@
 </div>
 
 @if (groups(); as g) {
+  <div class="batch-bar">
+    <p-checkbox
+      [binary]="true"
+      [ngModel]="allSelected()"
+      (onChange)="toggleAll($event.checked)"
+      label="Todas"
+    />
+    <span class="batch-summary">
+      {{ selectedCount() }} canción(es) seleccionada(s) ·
+      {{ (selectedSummary().bytes / 1024 / 1024).toFixed(1) }} MB
+    </span>
+    <div class="batch-actions">
+      <p-button
+        icon="pi pi-folder-open"
+        label="Mover seleccionadas"
+        [text]="true"
+        [disabled]="selectedCount() === 0"
+        (onClick)="openBatch('move')"
+      />
+      <p-button
+        icon="pi pi-trash"
+        label="Borrar del índice"
+        severity="secondary"
+        [text]="true"
+        [disabled]="selectedCount() === 0"
+        (onClick)="openBatch('delete_index')"
+      />
+      <p-button
+        icon="pi pi-trash"
+        label="Borrar del disco"
+        severity="danger"
+        [text]="true"
+        [disabled]="selectedCount() === 0"
+        (onClick)="openBatch('delete_file')"
+      />
+    </div>
+  </div>
+
   <div class="duplicates-layout">
     <div class="results">
     @if (g.length === 0 && !loading()) {
@@ -40,24 +78,39 @@
         <p-table [value]="group.tracks" styleClass="p-datatable-sm">
           <ng-template #header>
             <tr>
-              <th>Archivo</th>
-              <th>Título</th>
-              <th>Artista</th>
-              <th>Duración</th>
-              <th>Bitrate</th>
-              <th>Ruta</th>
-              <th style="width: 8rem"></th>
+              <th class="col-select">
+                <p-checkbox
+                  [binary]="true"
+                  [ngModel]="allSelected()"
+                  (onChange)="toggleAll($event.checked)"
+                />
+              </th>
+              <th class="col-filename">Archivo</th>
+              <th class="col-title">Título</th>
+              <th class="col-artist">Artista</th>
+              <th class="col-duration">Duración</th>
+              <th class="col-bitrate">Bitrate</th>
+              <th class="col-path">Ruta</th>
+              <th class="col-actions"></th>
             </tr>
           </ng-template>
           <ng-template #body let-track>
-            <tr>
-              <td>{{ track.filename }}</td>
-              <td>{{ track.title || "—" }}</td>
-              <td>{{ track.artist || "—" }}</td>
-              <td>{{ formatDuration(track.duration_secs) }}</td>
-              <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
-              <td class="path-cell">{{ track.path }}</td>
-              <td>
+            <tr [class.moved]="track.moved">
+              <td class="col-select">
+                <p-checkbox
+                  [binary]="true"
+                  [ngModel]="isTrackSelected(track)"
+                  (onChange)="toggleTrack(track, $event.checked)"
+                  [disabled]="track.moved"
+                />
+              </td>
+              <td class="col-filename">{{ track.filename }}</td>
+              <td class="col-title">{{ track.title || "—" }}</td>
+              <td class="col-artist">{{ track.artist || "—" }}</td>
+              <td class="col-duration">{{ formatDuration(track.duration_secs) }}</td>
+              <td class="col-bitrate">{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
+              <td class="col-path path-cell">{{ track.path }}</td>
+              <td class="col-actions">
                 <div class="row-actions">
                   <p-button
                     icon="pi pi-play"
@@ -66,15 +119,9 @@
                     pTooltip="Escuchar"
                   />
                   <p-button
-                    icon="pi pi-check"
-                    label="Mantener"
-                    [text]="true"
-                    (onClick)="keepBest(group, track)"
-                    pTooltip="Conservar este y borrar los demás"
-                  />
-                  <p-button
                     icon="pi pi-folder-open"
                     [text]="true"
+                    [disabled]="track.moved"
                     (onClick)="moveTrackToSelected(track)"
                     pTooltip="Mover a la carpeta seleccionada"
                   />
@@ -104,6 +151,24 @@
         (onClick)="loadFolderRoot()"
       />
     </div>
+    @if (moveRoot()) {
+      <div class="new-folder">
+        <input
+          pInputText
+          [(ngModel)]="newFolderName"
+          placeholder="Nueva carpeta"
+          class="new-folder-input"
+          (keydown.enter)="createNewFolder()"
+        />
+        <p-button
+          icon="pi pi-plus"
+          label="Crear"
+          [loading]="creatingFolder()"
+          [disabled]="!newFolderName().trim()"
+          (onClick)="createNewFolder()"
+        />
+      </div>
+    }
     @if (folderTree().length > 0) {
       <p-tree
         [value]="folderTree()"
@@ -127,7 +192,7 @@
   (visibleChange)="deleteDialogVisible.set($event)"
   [header]="'Eliminar: ' + (pendingDelete()?.filename || '')"
   [modal]="true"
-  [style]="{ width: '25rem' }"
+  [style]="{ width: 'min(90vw, 25rem)' }"
   [closable]="true"
 >
   @if (deleteStep() === "choose") {
@@ -160,6 +225,37 @@
         label="Confirmar eliminación física"
         severity="danger"
         (onClick)="removeFromDisk()"
+      />
+    </div>
+  }
+</p-dialog>
+
+<p-dialog
+  [visible]="batchDialogVisible()"
+  (visibleChange)="batchDialogVisible.set($event)"
+  [header]="'Acción por lote'"
+  [modal]="true"
+  [style]="{ width: 'min(90vw, 25rem)' }"
+  [closable]="true"
+>
+  @if (batchAction(); as action) {
+    <p>
+      Vas a <strong>{{ batchActionLabel(action) }}</strong>.
+    </p>
+    <p>
+      {{ selectedCount() }} canción(es) seleccionada(s), aproximadamente
+      {{ (selectedSummary().bytes / 1024 / 1024).toFixed(1) }} MB.
+    </p>
+    <div class="dialog-actions">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="closeBatchDialog()"
+      />
+      <p-button
+        [label]="batchConfirmLabel(action)"
+        [severity]="action === 'delete_file' ? 'danger' : 'primary'"
+        (onClick)="executeBatch()"
       />
     </div>
   }

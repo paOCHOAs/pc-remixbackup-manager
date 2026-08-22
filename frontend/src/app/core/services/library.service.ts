@@ -11,6 +11,17 @@ export interface BatchUpdateResult {
   errors: string[];
 }
 
+export interface DuplicateBatchItem {
+  keep_id: number;
+  remove_ids: number[];
+}
+
+export interface BatchActionResult {
+  affected: number;
+  freed_bytes: number;
+  errors: string[];
+}
+
 export interface TagUpdate {
   title?: string | null;
   artist?: string | null;
@@ -119,6 +130,10 @@ export class LibraryService {
     return invoke<{ label: string; data: string; children: any[] }>("list_subfolders", { root });
   }
 
+  createFolder(parent: string, name: string): Promise<string> {
+    return invoke<string>("create_folder", { parent, name });
+  }
+
   moveTrackToFolder(id: number, folder: string): Promise<string> {
     return invoke<string>("move_track_to_folder", { id, folder });
   }
@@ -129,6 +144,21 @@ export class LibraryService {
 
   identifyTrack(id: number): Promise<Track> {
     return invoke<Track>("identify_track", { id });
+  }
+
+  keepBestBatch(items: DuplicateBatchItem[]): Promise<BatchActionResult> {
+    return invoke<BatchActionResult>("keep_best_batch", { items });
+  }
+
+  deleteDuplicatesBatch(
+    items: DuplicateBatchItem[],
+    delete_file: boolean,
+  ): Promise<BatchActionResult> {
+    return invoke<BatchActionResult>("delete_duplicates_batch", { items, delete_file });
+  }
+
+  moveDuplicatesBatch(items: DuplicateBatchItem[], folder: string): Promise<BatchActionResult> {
+    return invoke<BatchActionResult>("move_duplicates_batch", { items, folder });
   }
 
   scanProgress$(): Observable<ScanProgress> {

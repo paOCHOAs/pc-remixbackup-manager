@@ -58,8 +58,12 @@ pub fn run() {
             commands::remove_duplicate,
             commands::remove_duplicates_except,
             commands::remove_track_and_file,
+            commands::keep_best_batch,
+            commands::delete_duplicates_batch,
+            commands::move_duplicates_batch,
             commands::get_playable_path,
             commands::list_subfolders,
+            commands::create_folder,
             commands::move_track_to_folder
         ])
         .run(tauri::generate_context!())

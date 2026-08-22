@@ -14,6 +14,7 @@ export interface Track {
   sample_rate: number | null;
   file_format: string | null;
   file_size: number;
+  moved: boolean;
   date_added: string;
   date_modified: string | null;
 }
