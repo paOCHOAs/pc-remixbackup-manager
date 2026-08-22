@@ -26,4 +26,5 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 lofty = "0.25.1"
 walkdir = "2.5.0"
 tauri-plugin-dialog = "2.7.2"
+trash = "5.2.6"
 

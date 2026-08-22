@@ -111,6 +111,10 @@ export class LibraryService {
     return invoke<void>("remove_duplicate", { id });
   }
 
+  removeTrackAndFile(id: number): Promise<string> {
+    return invoke<string>("remove_track_and_file", { id });
+  }
+
   removeDuplicatesExcept(keep: number, ids: number[]): Promise<number> {
     return invoke<number>("remove_duplicates_except", { keep, ids });
   }

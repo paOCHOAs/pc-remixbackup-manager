@@ -26,11 +26,17 @@ pub fn run() {
             app.manage(AppState {
                 db: Mutex::new(conn),
             });
-            // Rescan configured folders on startup
-            let _ = commands::library_folders::rescan_all_library_folders(
-                app.handle().clone(),
-                app.state::<AppState>(),
-            );
+
+            // Rescan configured folders on startup in a background thread
+            // so the main thread / webview is not blocked.
+            let app_handle = app.handle().clone();
+            let db_path = data_dir.join("library.db");
+            std::thread::spawn(move || {
+                if let Ok(mut conn) = database::open(&db_path) {
+                    let _ = commands::library_folders::rescan_all(&mut conn, &app_handle);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -48,7 +54,8 @@ pub fn run() {
             commands::library_folders::clear_library,
             commands::find_duplicates,
             commands::remove_duplicate,
-            commands::remove_duplicates_except
+            commands::remove_duplicates_except,
+            commands::remove_track_and_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

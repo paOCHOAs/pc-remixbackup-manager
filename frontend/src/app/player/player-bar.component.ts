@@ -10,6 +10,7 @@ import {
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { openPath } from "@tauri-apps/plugin-opener";
 import WaveSurfer from "wavesurfer.js";
 import { ButtonModule } from "primeng/button";
 import { SliderModule } from "primeng/slider";
@@ -33,6 +34,7 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
   currentTime = signal(0);
   duration = signal(0);
   volume = 80;
+  isSeeking = false;
 
   private ws: WaveSurfer | null = null;
   private viewReady = false;
@@ -42,6 +44,21 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
       const track = this.player.currentTrack();
       if (track && this.viewReady) this.load(track);
     });
+  }
+
+  onSeekChange(event: Event): void {
+    const value = (event.target as HTMLInputElement).valueAsNumber;
+    this.currentTime.set(value);
+  }
+
+  onSeekEnd(event: Event): void {
+    const value = (event.target as HTMLInputElement).valueAsNumber;
+    this.isSeeking = false;
+    this.ws?.setTime(value);
+  }
+
+  onSeekStart(): void {
+    this.isSeeking = true;
   }
 
   ngAfterViewInit(): void {
@@ -60,19 +77,22 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.playing.set(false);
     this.currentTime.set(0);
+    this.isSeeking = false;
     this.duration.set(track.duration_secs ?? 0);
 
     this.ws?.destroy();
     this.ws = WaveSurfer.create({
       container: this.waveformRef.nativeElement,
-      height: 44,
-      waveColor: "#52525b",
+      height: 2,
+      waveColor: "transparent",
       progressColor: "#3b82f6",
-      cursorColor: "#93c5fd",
-      cursorWidth: 1,
-      barWidth: 2,
-      barGap: 1,
+      cursorColor: "transparent",
+      cursorWidth: 0,
+      barWidth: 0,
+      barGap: 0,
       normalize: true,
+      backend: "MediaElement",
+      peaks: [new Float32Array([0, 0])],
       url: convertFileSrc(track.path),
     });
 
@@ -85,7 +105,9 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
     this.ws.on("play", () => this.playing.set(true));
     this.ws.on("pause", () => this.playing.set(false));
     this.ws.on("finish", () => this.playing.set(false));
-    this.ws.on("timeupdate", (t) => this.currentTime.set(t));
+    this.ws.on("timeupdate", (t) => {
+      if (!this.isSeeking) this.currentTime.set(t);
+    });
     this.ws.on("error", (e) => {
       this.loading.set(false);
       this.error.set(`No se pudo reproducir: ${e}`);
@@ -94,6 +116,16 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
 
   togglePlay(): void {
     this.ws?.playPause();
+  }
+
+  async openExternal(): Promise<void> {
+    const t = this.track();
+    if (!t) return;
+    try {
+      await openPath(t.path);
+    } catch (e) {
+      this.error.set(`No se pudo abrir: ${e}`);
+    }
   }
 
   onVolumeChange(value: number): void {

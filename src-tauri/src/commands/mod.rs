@@ -311,3 +311,21 @@ pub fn remove_duplicates_except(
     }
     Ok(removed)
 }
+
+#[tauri::command]
+pub fn remove_track_and_file(
+    id: i64,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let path: String = conn
+        .query_row("SELECT path FROM tracks WHERE id = ?1", params![id], |r| {
+            r.get(0)
+        })
+        .map_err(|e| e.to_string())?;
+    if std::path::Path::new(&path).exists() {
+        trash::delete(&path).map_err(|e| e.to_string())?;
+    }
+    duplicates::remove_track(&conn, id)?;
+    Ok(path)
+}

@@ -53,6 +53,17 @@
   width: 100%;
 }
 
+.seek-bar {
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.waveform-wrap:has(.seek-bar) {
+  min-height: 20px;
+}
+
 .status {
   position: absolute;
   inset: 0;

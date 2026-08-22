@@ -17,11 +17,30 @@
 
   <div class="waveform-wrap">
     <div #waveform class="waveform"></div>
+    <input
+      type="range"
+      class="seek-bar"
+      [min]="0"
+      [max]="duration()"
+      [value]="currentTime()"
+      step="0.1"
+      (input)="onSeekChange($event)"
+      (change)="onSeekEnd($event)"
+      (mousedown)="onSeekStart()"
+      (touchstart)="onSeekStart()"
+    />
     @if (loading()) {
-      <span class="status">Cargando waveform…</span>
+      <span class="status">Cargando…</span>
     }
     @if (error(); as err) {
       <span class="status error">{{ err }}</span>
+      <p-button
+        icon="pi pi-external-link"
+        label="Reproductor del sistema"
+        [text]="true"
+        severity="secondary"
+        (onClick)="openExternal()"
+      />
     }
   </div>
 

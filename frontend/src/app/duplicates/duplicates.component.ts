@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ButtonModule } from "primeng/button";
+import { DialogModule } from "primeng/dialog";
 import { SelectModule } from "primeng/select";
 import { PanelModule } from "primeng/panel";
 import { TableModule } from "primeng/table";
@@ -21,6 +22,7 @@ import { DuplicateGroup } from "../core/models/duplicate-group.model";
     CommonModule,
     FormsModule,
     ButtonModule,
+    DialogModule,
     SelectModule,
     PanelModule,
     TableModule,
@@ -35,6 +37,9 @@ import { DuplicateGroup } from "../core/models/duplicate-group.model";
 export class DuplicatesComponent implements OnInit {
   groups = signal<DuplicateGroup[]>([]);
   loading = signal(false);
+  deleteDialogVisible = signal(false);
+  deleteStep = signal<"choose" | "confirm-file">("choose");
+  pendingDelete = signal<Track | null>(null);
   mode:
     | "exact"
     | "name_artist"
@@ -83,14 +88,53 @@ export class DuplicatesComponent implements OnInit {
     }
   }
 
-  async removeTrack(track: Track): Promise<void> {
+  showDeleteDialog(track: Track): void {
+    this.pendingDelete.set(track);
+    this.deleteStep.set("choose");
+    this.deleteDialogVisible.set(true);
+  }
+
+  closeDeleteDialog(): void {
+    this.deleteDialogVisible.set(false);
+    this.pendingDelete.set(null);
+  }
+
+  async removeFromIndexOnly(): Promise<void> {
+    const track = this.pendingDelete();
+    if (!track) return;
     try {
       await this.library.removeDuplicate(track.id);
       this.messages.add({
         severity: "success",
-        summary: "Track eliminado",
+        summary: "Track eliminado del índice",
         detail: track.filename,
       });
+      this.closeDeleteDialog();
+      this.search();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo eliminar",
+        detail: String(e),
+      });
+    }
+  }
+
+  askDeleteFile(): void {
+    this.deleteStep.set("confirm-file");
+  }
+
+  async removeFromDisk(): Promise<void> {
+    const track = this.pendingDelete();
+    if (!track) return;
+    try {
+      const path = await this.library.removeTrackAndFile(track.id);
+      this.messages.add({
+        severity: "success",
+        summary: "Track y archivo eliminados",
+        detail: path,
+      });
+      this.closeDeleteDialog();
       this.search();
     } catch (e) {
       this.messages.add({

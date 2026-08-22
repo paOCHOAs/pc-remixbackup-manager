@@ -75,8 +75,8 @@
                     icon="pi pi-trash"
                     [text]="true"
                     severity="danger"
-                    (onClick)="removeTrack(track)"
-                    pTooltip="Eliminar este del índice"
+                    (onClick)="showDeleteDialog(track)"
+                    pTooltip="Eliminar"
                   />
                 </div>
               </td>
@@ -87,3 +87,46 @@
     }
   </div>
 }
+
+<p-dialog
+  [visible]="deleteDialogVisible()"
+  (visibleChange)="deleteDialogVisible.set($event)"
+  [header]="'Eliminar: ' + (pendingDelete()?.filename || '')"
+  [modal]="true"
+  [style]="{ width: '25rem' }"
+  [closable]="true"
+>
+  @if (deleteStep() === "choose") {
+    <p>¿Qué quieres hacer con <strong>{{ pendingDelete()?.filename }}</strong>?</p>
+    <div class="dialog-actions">
+      <p-button
+        label="Solo del índice"
+        severity="secondary"
+        (onClick)="removeFromIndexOnly()"
+      />
+      <p-button
+        label="También del disco"
+        severity="danger"
+        (onClick)="askDeleteFile()"
+      />
+    </div>
+  }
+  @if (deleteStep() === "confirm-file") {
+    <p class="danger-text">
+      Vas a borrar el archivo físico. Esta acción no se puede deshacer.
+    </p>
+    <p class="path-text">{{ pendingDelete()?.path }}</p>
+    <div class="dialog-actions">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="closeDeleteDialog()"
+      />
+      <p-button
+        label="Confirmar eliminación física"
+        severity="danger"
+        (onClick)="removeFromDisk()"
+      />
+    </div>
+  }
+</p-dialog>

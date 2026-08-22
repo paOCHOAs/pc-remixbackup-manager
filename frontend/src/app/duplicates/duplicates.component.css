@@ -49,3 +49,21 @@
   gap: 0.25rem;
   justify-content: flex-end;
 }
+
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+
+.danger-text {
+  color: var(--p-red-400, #f87171);
+}
+
+.path-text {
+  font-family: monospace;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  word-break: break-all;
+}

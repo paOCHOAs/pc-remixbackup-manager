@@ -116,14 +116,9 @@ pub fn set_library_folder_enabled(
     Ok(())
 }
 
-#[tauri::command]
-pub fn rescan_all_library_folders(
-    app: tauri::AppHandle,
-    state: State<'_, AppState>,
-) -> Result<ScanResult, String> {
+pub fn rescan_all(conn: &mut rusqlite::Connection, app: &tauri::AppHandle) -> Result<ScanResult, String> {
     let mut folders = Vec::new();
     {
-        let conn = state.db.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare("SELECT path FROM library_folders WHERE enabled = 1")
             .map_err(|e| e.to_string())?;
@@ -133,7 +128,7 @@ pub fn rescan_all_library_folders(
         for r in rows {
             folders.push(r.map_err(|e| e.to_string())?);
         }
-    } // conn released here
+    }
 
     let mut total = ScanResult {
         added: 0,
@@ -142,9 +137,8 @@ pub fn rescan_all_library_folders(
         errors: Vec::new(),
     };
 
-    let mut conn = state.db.lock().map_err(|e| e.to_string())?;
     for path in folders {
-        match scanner::scan_folder(&mut conn, &path, &app) {
+        match scanner::scan_folder(conn, &path, app) {
             Ok(r) => {
                 total.added += r.added;
                 total.updated += r.updated;
@@ -161,4 +155,13 @@ pub fn rescan_all_library_folders(
     }
 
     Ok(total)
+}
+
+#[tauri::command]
+pub fn rescan_all_library_folders(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ScanResult, String> {
+    let mut conn = state.db.lock().map_err(|e| e.to_string())?;
+    rescan_all(&mut conn, &app)
 }
