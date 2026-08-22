@@ -1,0 +1,59 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev",
+      "type": "shell",
+      "command": "npm run dev",
+      "group": "build",
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "npm run build",
+      "group": "build",
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "check rust",
+      "type": "shell",
+      "command": "cargo check",
+      "options": {
+        "cwd": "src-tauri"
+      },
+      "group": "build",
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always",
+        "clear": true
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "build angular",
+      "type": "shell",
+      "command": "npx ng build",
+      "options": {
+        "cwd": "frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "panel": "shared",
+        "reveal": "always",
+        "clear": true
+      },
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}

@@ -48,12 +48,20 @@
               <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
               <td class="path-cell">{{ track.path }}</td>
               <td>
-                <p-button
-                  icon="pi pi-check"
-                  label="Mantener"
-                  [text]="true"
-                  (onClick)="keepBest(group, track)"
-                />
+                <div class="row-actions">
+                  <p-button
+                    icon="pi pi-play"
+                    [text]="true"
+                    (onClick)="play(track)"
+                    pTooltip="Escuchar"
+                  />
+                  <p-button
+                    icon="pi pi-check"
+                    label="Mantener"
+                    [text]="true"
+                    (onClick)="keepBest(group, track)"
+                  />
+                </div>
               </td>
             </tr>
           </ng-template>

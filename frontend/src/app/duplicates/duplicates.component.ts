@@ -7,8 +7,11 @@ import { PanelModule } from "primeng/panel";
 import { TableModule } from "primeng/table";
 import { TagModule } from "primeng/tag";
 import { ToastModule } from "primeng/toast";
+import { TooltipModule } from "primeng/tooltip";
 import { MessageService } from "primeng/api";
 import { LibraryService } from "../core/services/library.service";
+import { PlayerService } from "../core/services/player.service";
+import { Track } from "../core/models/track.model";
 import { DuplicateGroup } from "../core/models/duplicate-group.model";
 
 @Component({
@@ -23,6 +26,7 @@ import { DuplicateGroup } from "../core/models/duplicate-group.model";
     TableModule,
     TagModule,
     ToastModule,
+    TooltipModule,
   ],
   providers: [MessageService],
   templateUrl: "./duplicates.component.html",
@@ -31,18 +35,32 @@ import { DuplicateGroup } from "../core/models/duplicate-group.model";
 export class DuplicatesComponent implements OnInit {
   groups = signal<DuplicateGroup[]>([]);
   loading = signal(false);
-  mode: "exact" | "filename" | "duration" = "exact";
+  mode:
+    | "exact"
+    | "filename"
+    | "duration"
+    | "exact_and_duration"
+    | "filename_and_size"
+    | "size" = "exact";
 
   modes = [
     { label: "Título + Artista", value: "exact" },
+    { label: "Título + Artista + Duración", value: "exact_and_duration" },
     { label: "Nombre de archivo", value: "filename" },
+    { label: "Nombre de archivo + Tamaño", value: "filename_and_size" },
     { label: "Duración + Tamaño", value: "duration" },
+    { label: "Solo tamaño de archivo", value: "size" },
   ];
 
   constructor(
     private library: LibraryService,
+    private player: PlayerService,
     private messages: MessageService,
   ) {}
+
+  play(track: Track): void {
+    this.player.play(track);
+  }
 
   ngOnInit(): void {
     this.search();

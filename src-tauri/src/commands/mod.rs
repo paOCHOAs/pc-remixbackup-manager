@@ -274,6 +274,9 @@ pub fn find_duplicates(
         "exact" => duplicates::DuplicateMode::Exact,
         "filename" => duplicates::DuplicateMode::Filename,
         "duration" => duplicates::DuplicateMode::DurationAndSize,
+        "exact_and_duration" => duplicates::DuplicateMode::ExactAndDuration,
+        "filename_and_size" => duplicates::DuplicateMode::FilenameAndSize,
+        "size" => duplicates::DuplicateMode::SizeOnly,
         _ => duplicates::DuplicateMode::Exact,
     };
     duplicates::find(&conn, &mode)

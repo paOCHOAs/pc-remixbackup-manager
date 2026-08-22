@@ -86,7 +86,15 @@ export class LibraryService {
     return invoke<ScanResult>("rescan_all_library_folders");
   }
 
-  findDuplicates(mode: "exact" | "filename" | "duration"): Promise<DuplicateGroup[]> {
+  findDuplicates(
+    mode:
+      | "exact"
+      | "filename"
+      | "duration"
+      | "exact_and_duration"
+      | "filename_and_size"
+      | "size",
+  ): Promise<DuplicateGroup[]> {
     return invoke<DuplicateGroup[]>("find_duplicates", { mode });
   }
 

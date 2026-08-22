@@ -8,6 +8,9 @@ pub enum DuplicateMode {
     Exact,
     Filename,
     DurationAndSize,
+    ExactAndDuration,
+    FilenameAndSize,
+    SizeOnly,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -50,6 +53,37 @@ pub fn find(conn: &Connection, mode: &DuplicateMode) -> Result<Vec<DuplicateGrou
              )
              ORDER BY duration_secs, file_size, path"
         }
+        DuplicateMode::ExactAndDuration => {
+            "SELECT * FROM tracks
+             WHERE LOWER(COALESCE(title, '')) || '|' || LOWER(COALESCE(artist, '')) || '|' || CAST(duration_secs AS INTEGER) IN (
+                 SELECT LOWER(COALESCE(title, '')) || '|' || LOWER(COALESCE(artist, '')) || '|' || CAST(duration_secs AS INTEGER)
+                 FROM tracks
+                 WHERE title IS NOT NULL AND artist IS NOT NULL AND duration_secs IS NOT NULL
+                 GROUP BY LOWER(title), LOWER(artist), CAST(duration_secs AS INTEGER)
+                 HAVING COUNT(*) > 1
+             )
+             ORDER BY LOWER(COALESCE(title, '')), LOWER(COALESCE(artist, '')), duration_secs, path"
+        }
+        DuplicateMode::FilenameAndSize => {
+            "SELECT * FROM tracks
+             WHERE LOWER(filename) || '|' || file_size IN (
+                 SELECT LOWER(filename) || '|' || file_size
+                 FROM tracks
+                 GROUP BY LOWER(filename), file_size
+                 HAVING COUNT(*) > 1
+             )
+             ORDER BY LOWER(filename), file_size, path"
+        }
+        DuplicateMode::SizeOnly => {
+            "SELECT * FROM tracks
+             WHERE file_size IN (
+                 SELECT file_size
+                 FROM tracks
+                 GROUP BY file_size
+                 HAVING COUNT(*) > 1
+             )
+             ORDER BY file_size, path"
+        }
     };
 
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
@@ -76,6 +110,16 @@ pub fn find(conn: &Connection, mode: &DuplicateMode) -> Result<Vec<DuplicateGrou
             DuplicateMode::DurationAndSize => {
                 format!("{:.3}s | {} bytes", track.duration_secs.unwrap_or(0.0), track.file_size)
             }
+            DuplicateMode::ExactAndDuration => format!(
+                "{} - {} ({:.0}s)",
+                track.artist.as_deref().unwrap_or("").to_lowercase(),
+                track.title.as_deref().unwrap_or("").to_lowercase(),
+                track.duration_secs.unwrap_or(0.0)
+            ),
+            DuplicateMode::FilenameAndSize => {
+                format!("{} ({} bytes)", track.filename.to_lowercase(), track.file_size)
+            }
+            DuplicateMode::SizeOnly => format!("{} bytes", track.file_size),
         };
 
         if key != current_key {
