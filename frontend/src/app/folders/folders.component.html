@@ -1,4 +1,5 @@
 <p-toast />
+<p-confirmDialog />
 
 <div class="folders-header">
   <h2>Carpetas de biblioteca</h2>
@@ -13,6 +14,19 @@
       label="Re-escanear todo"
       [loading]="scanning()"
       (onClick)="rescan()"
+    />
+    <p-button
+      icon="pi pi-trash"
+      label="Limpiar huérfanos"
+      severity="danger"
+      (onClick)="clean()"
+    />
+    <p-button
+      icon="pi pi-eraser"
+      label="Vaciar biblioteca"
+      severity="danger"
+      [outlined]="true"
+      (onClick)="confirmClear()"
     />
   </div>
 </div>

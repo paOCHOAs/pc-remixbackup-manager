@@ -37,13 +37,15 @@ export class DuplicatesComponent implements OnInit {
   loading = signal(false);
   mode:
     | "exact"
+    | "name_artist"
     | "filename"
     | "duration"
     | "exact_and_duration"
     | "filename_and_size"
-    | "size" = "exact";
+    | "size" = "name_artist";
 
   modes = [
+    { label: "Nombre + Artista (normalizado)", value: "name_artist" },
     { label: "Título + Artista", value: "exact" },
     { label: "Título + Artista + Duración", value: "exact_and_duration" },
     { label: "Nombre de archivo", value: "filename" },
@@ -81,26 +83,57 @@ export class DuplicatesComponent implements OnInit {
     }
   }
 
-  async keepBest(group: DuplicateGroup, keep: (typeof group.tracks)[0]): Promise<void> {
-    const toRemove = group.tracks.filter((t) => t.id !== keep.id);
-    for (const t of toRemove) {
-      try {
-        await this.library.removeDuplicate(t.id);
-      } catch (e) {
-        this.messages.add({
-          severity: "error",
-          summary: "No se pudo eliminar",
-          detail: String(e),
-        });
-        return;
-      }
+  async removeTrack(track: Track): Promise<void> {
+    try {
+      await this.library.removeDuplicate(track.id);
+      this.messages.add({
+        severity: "success",
+        summary: "Track eliminado",
+        detail: track.filename,
+      });
+      this.search();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo eliminar",
+        detail: String(e),
+      });
     }
-    this.messages.add({
-      severity: "success",
-      summary: "Duplicados limpiados",
-      detail: `${toRemove.length} track(s) eliminados del índice`,
-    });
-    this.search();
+  }
+
+  async keepBest(group: DuplicateGroup, keep: (typeof group.tracks)[0]): Promise<void> {
+    const ids = group.tracks.map((t) => t.id);
+    try {
+      const removed = await this.library.removeDuplicatesExcept(keep.id, ids);
+      this.messages.add({
+        severity: "success",
+        summary: "Duplicados limpiados",
+        detail: `${removed} track(s) eliminados del índice`,
+      });
+      this.search();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo limpiar",
+        detail: String(e),
+      });
+    }
+  }
+
+  bestTrack(group: DuplicateGroup): (typeof group.tracks)[0] {
+    return group.tracks.slice().sort((a, b) => {
+      if ((b.bitrate_kbps ?? 0) !== (a.bitrate_kbps ?? 0))
+        return (b.bitrate_kbps ?? 0) - (a.bitrate_kbps ?? 0);
+      if (b.file_size !== a.file_size) return b.file_size - a.file_size;
+      if ((b.duration_secs ?? 0) !== (a.duration_secs ?? 0))
+        return (b.duration_secs ?? 0) - (a.duration_secs ?? 0);
+      return a.path.localeCompare(b.path);
+    })[0];
+  }
+
+  async keepAutoBest(group: DuplicateGroup): Promise<void> {
+    const keep = this.bestTrack(group);
+    await this.keepBest(group, keep);
   }
 
   formatDuration(secs: number | null): string {

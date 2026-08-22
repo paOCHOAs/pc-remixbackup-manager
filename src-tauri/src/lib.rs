@@ -44,8 +44,11 @@ pub fn run() {
             commands::library_folders::remove_library_folder,
             commands::library_folders::set_library_folder_enabled,
             commands::library_folders::rescan_all_library_folders,
+            commands::library_folders::clean_library,
+            commands::library_folders::clear_library,
             commands::find_duplicates,
-            commands::remove_duplicate
+            commands::remove_duplicate,
+            commands::remove_duplicates_except
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

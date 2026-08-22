@@ -8,9 +8,10 @@
       <nav>
         @for (item of navItems; track item.route) {
           <a
-            [routerLink]="item.route"
-            routerLinkActive="active"
+            (click)="goTo(item.route)"
+            [class.active]="isActive(item.route)"
             class="nav-item"
+            href="javascript:void(0)"
           >
             <i [class]="item.icon"></i>
             <span>{{ item.label }}</span>

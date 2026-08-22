@@ -12,6 +12,43 @@ pub struct LibraryFolder {
     pub last_scanned: Option<String>,
 }
 
+#[tauri::command]
+pub fn clean_library(state: State<'_, AppState>) -> Result<usize, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let paths: Vec<(i64, String)> = conn
+        .prepare("SELECT id, path FROM tracks")
+        .map_err(|e| e.to_string())?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut removed = 0usize;
+    for (id, path) in paths {
+        if !std::path::Path::new(&path).exists() {
+            conn.execute("DELETE FROM tracks WHERE id = ?1", params![id])
+                .map_err(|e| e.to_string())?;
+            removed += 1;
+        }
+    }
+    Ok(removed)
+}
+
+#[tauri::command]
+pub fn clear_library(state: State<'_, AppState>) -> Result<usize, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+    conn.execute_batch(
+        "DELETE FROM playlist_tracks;
+         DELETE FROM tracks;
+         VACUUM;",
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(count as usize)
+}
+
 fn row_to_folder(row: &rusqlite::Row) -> rusqlite::Result<LibraryFolder> {
     Ok(LibraryFolder {
         id: row.get("id")?,

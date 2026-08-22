@@ -86,9 +86,18 @@ export class LibraryService {
     return invoke<ScanResult>("rescan_all_library_folders");
   }
 
+  cleanLibrary(): Promise<number> {
+    return invoke<number>("clean_library");
+  }
+
+  clearLibrary(): Promise<number> {
+    return invoke<number>("clear_library");
+  }
+
   findDuplicates(
     mode:
       | "exact"
+      | "name_artist"
       | "filename"
       | "duration"
       | "exact_and_duration"
@@ -100,6 +109,10 @@ export class LibraryService {
 
   removeDuplicate(id: number): Promise<void> {
     return invoke<void>("remove_duplicate", { id });
+  }
+
+  removeDuplicatesExcept(keep: number, ids: number[]): Promise<number> {
+    return invoke<number>("remove_duplicates_except", { keep, ids });
   }
 
   scanProgress$(): Observable<ScanProgress> {

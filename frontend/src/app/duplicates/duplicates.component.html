@@ -27,6 +27,15 @@
 
     @for (group of g; track group.key) {
       <p-panel [header]="group.key + ' (' + group.tracks.length + ')'" [toggleable]="true">
+        <ng-template pTemplate="icons">
+          <p-button
+            icon="pi pi-sparkles"
+            label="Mantener el mejor"
+            severity="help"
+            [text]="true"
+            (onClick)="keepAutoBest(group)"
+          />
+        </ng-template>
         <p-table [value]="group.tracks" styleClass="p-datatable-sm">
           <ng-template #header>
             <tr>
@@ -60,6 +69,14 @@
                     label="Mantener"
                     [text]="true"
                     (onClick)="keepBest(group, track)"
+                    pTooltip="Conservar este y borrar los demás"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    severity="danger"
+                    (onClick)="removeTrack(track)"
+                    pTooltip="Eliminar este del índice"
                   />
                 </div>
               </td>

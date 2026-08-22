@@ -272,6 +272,7 @@ pub fn find_duplicates(
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     let mode = match mode.as_str() {
         "exact" => duplicates::DuplicateMode::Exact,
+        "name_artist" => duplicates::DuplicateMode::NameAndArtist,
         "filename" => duplicates::DuplicateMode::Filename,
         "duration" => duplicates::DuplicateMode::DurationAndSize,
         "exact_and_duration" => duplicates::DuplicateMode::ExactAndDuration,
@@ -289,4 +290,24 @@ pub fn remove_duplicate(
 ) -> Result<(), String> {
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     duplicates::remove_track(&conn, id)
+}
+
+#[tauri::command]
+pub fn remove_duplicates_except(
+    keep: i64,
+    ids: Vec<i64>,
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("DELETE FROM tracks WHERE id = ?1 AND id != ?2")
+        .map_err(|e| e.to_string())?;
+    let mut removed = 0usize;
+    for id in ids {
+        if id == keep {
+            continue;
+        }
+        removed += stmt.execute(params![id, keep]).map_err(|e| e.to_string())?;
+    }
+    Ok(removed)
 }
