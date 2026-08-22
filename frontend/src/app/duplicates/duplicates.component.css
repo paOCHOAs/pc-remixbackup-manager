@@ -322,3 +322,27 @@
 .moved {
   opacity: 0.55;
 }
+
+.playing {
+  background-color: var(--p-primary-200, #bfdbfe);
+  border-left: 4px solid var(--p-primary-500, #3b82f6);
+}
+
+.app-dark .playing {
+  background-color: color-mix(in srgb, var(--p-primary-500, #3b82f6) 35%, transparent);
+  border-left: 4px solid var(--p-primary-400, #60a5fa);
+}
+
+.playing td {
+  font-weight: 600;
+}
+
+.playing-icon {
+  color: var(--p-primary-600, #2563eb);
+  margin-right: 0.35rem;
+  font-weight: 700;
+}
+
+.app-dark .playing-icon {
+  color: var(--p-primary-300, #93c5fd);
+}

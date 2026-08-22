@@ -100,7 +100,7 @@ export class DuplicatesComponent implements OnInit {
 
   constructor(
     private library: LibraryService,
-    private player: PlayerService,
+    public player: PlayerService,
     private messages: MessageService,
   ) {}
 

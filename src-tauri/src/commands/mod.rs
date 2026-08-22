@@ -440,9 +440,9 @@ fn build_folder_node(path: &std::path::Path) -> Result<FolderNode, String> {
         .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
         .collect();
     entries.sort_by(|a, b| {
-        a.file_name()
-            .to_string_lossy()
-            .cmp(&b.file_name().to_string_lossy())
+        let a = a.file_name().to_string_lossy().to_lowercase();
+        let b = b.file_name().to_string_lossy().to_lowercase();
+        a.cmp(&b)
     });
     let mut children = Vec::with_capacity(entries.len());
     for e in entries {
