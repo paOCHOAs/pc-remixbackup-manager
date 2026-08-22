@@ -1,20 +1,25 @@
-import { Component, OnDestroy, OnInit, signal } from "@angular/core";
+import { Component, OnDestroy, OnInit, computed, signal } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Subject, Subscription, debounceTime } from "rxjs";
 import { ButtonModule } from "primeng/button";
+import { DialogModule } from "primeng/dialog";
 import { InputTextModule } from "primeng/inputtext";
+import { PaginatorModule } from "primeng/paginator";
 import { ProgressBarModule } from "primeng/progressbar";
 import { TableModule } from "primeng/table";
 import { SkeletonModule } from "primeng/skeleton";
 import { TagModule } from "primeng/tag";
 import { ToastModule } from "primeng/toast";
-import { MessageService } from "primeng/api";
+import { TooltipModule } from "primeng/tooltip";
+import { TreeModule } from "primeng/tree";
+import { MessageService, TreeNode } from "primeng/api";
 import { MetadataEditorComponent } from "../shared/metadata-editor/metadata-editor.component";
 import { LibraryService, TagUpdate } from "../core/services/library.service";
 import { PlayerService } from "../core/services/player.service";
 import { ScanProgress, Track } from "../core/models/track.model";
+import { DuplicateBatchItem, BatchActionResult } from "../core/services/library.service";
 
 @Component({
   selector: "app-library",
@@ -23,12 +28,16 @@ import { ScanProgress, Track } from "../core/models/track.model";
     CommonModule,
     FormsModule,
     ButtonModule,
+    DialogModule,
     InputTextModule,
+    PaginatorModule,
     ProgressBarModule,
     TableModule,
     SkeletonModule,
     TagModule,
     ToastModule,
+    TooltipModule,
+    TreeModule,
     MetadataEditorComponent,
   ],
   providers: [MessageService],
@@ -45,6 +54,23 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   selectedTracks = signal<Track[]>([]);
   editorVisible = signal(false);
+  moveDialogVisible = signal(false);
+  folderTree = signal<TreeNode[]>([]);
+  selectedFolder = signal<TreeNode | null>(null);
+  moveRoot = signal<string | null>(null);
+  newFolderName = signal("");
+  creatingFolder = signal(false);
+  loadingFolders = signal(false);
+  batchAction = signal<"delete_index" | "delete_file" | null>(null);
+  batchDialogVisible = signal(false);
+  trackDeleteDialogVisible = signal(false);
+  pendingDeleteTrack = signal<Track | null>(null);
+  first = signal(0);
+
+  selectedCount = computed(() => this.selectedTracks().length);
+  selectedBytes = computed(() =>
+    this.selectedTracks().reduce((acc, t) => acc + t.file_size, 0),
+  );
 
   readonly pageSize = 100;
 
@@ -53,12 +79,83 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   constructor(
     private library: LibraryService,
-    private player: PlayerService,
+    public player: PlayerService,
     private messages: MessageService,
   ) {}
 
   playTrack(track: Track): void {
     this.player.play(track);
+  }
+
+  async moveTrackToSelected(track: Track): Promise<void> {
+    const folder = this.selectedFolder();
+    if (!folder) {
+      this.messages.add({
+        severity: "warn",
+        summary: "Sin destino",
+        detail: "Selecciona una carpeta del árbol",
+      });
+      return;
+    }
+    try {
+      const newPath = await this.library.moveTrackToFolder(
+        track.id,
+        folder.data as string,
+      );
+      this.messages.add({
+        severity: "success",
+        summary: "Archivo movido",
+        detail: newPath,
+      });
+      this.mergeTrackUpdate(track.id, { moved: true, path: newPath });
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo mover",
+        detail: String(e),
+      });
+    }
+  }
+
+  openTrackDeleteDialog(track: Track): void {
+    this.pendingDeleteTrack.set(track);
+    this.trackDeleteDialogVisible.set(true);
+  }
+
+  closeTrackDeleteDialog(): void {
+    this.pendingDeleteTrack.set(null);
+    this.trackDeleteDialogVisible.set(false);
+  }
+
+  async executeTrackDelete(removeFile: boolean): Promise<void> {
+    const track = this.pendingDeleteTrack();
+    if (!track) return;
+    try {
+      if (removeFile) {
+        await this.library.removeTrackAndFile(track.id);
+      } else {
+        await this.library.deleteDuplicatesBatch(
+          [{ keep_id: -1, remove_ids: [track.id] }],
+          false,
+        );
+      }
+      this.messages.add({
+        severity: "success",
+        summary: track.title || track.filename,
+        detail: removeFile
+          ? "Track y archivo eliminados"
+          : "Track eliminado del índice",
+      });
+      this.tracks.set(this.tracks().filter((t) => t.id !== track.id));
+      this.totalCount.update((v) => Math.max(0, v - 1));
+      this.closeTrackDeleteDialog();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo eliminar",
+        detail: String(e),
+      });
+    }
   }
 
   ngOnInit(): void {
@@ -81,15 +178,20 @@ export class LibraryComponent implements OnInit, OnDestroy {
 
   /** Loads the first page of tracks (search/scan changes). */
   private async reload(): Promise<void> {
+    this.first.set(0);
+    this.selectedTracks.set([]);
+    await this.loadPage(0);
+  }
+
+  async loadPage(offset: number): Promise<void> {
     this.loading.set(true);
     this.tracks.set([]);
-    this.selectedTracks.set([]);
     try {
       const [tracks, total] = await Promise.all([
         this.library.getTracks({
           search: this.searchText,
           limit: this.pageSize,
-          offset: 0,
+          offset,
         }),
         this.library.getTrackCount(this.searchText),
       ]);
@@ -104,6 +206,13 @@ export class LibraryComponent implements OnInit, OnDestroy {
     } finally {
       this.loading.set(false);
     }
+  }
+
+  onPage(event: { first?: number }): void {
+    const first = event.first ?? 0;
+    this.first.set(first);
+    this.loadPage(first);
+    this.selectedTracks.set([]);
   }
 
   async addFolder(): Promise<void> {
@@ -187,6 +296,15 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.tracks.set(buffer);
   }
 
+  private mergeTrackUpdate(
+    id: number,
+    patch: Partial<Track>,
+  ): void {
+    this.tracks.set(
+      this.tracks().map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    );
+  }
+
   formatDuration(secs: number | null): string {
     if (secs == null) return "--:--";
     const m = Math.floor(secs / 60);
@@ -197,5 +315,206 @@ export class LibraryComponent implements OnInit, OnDestroy {
   progressPercent(): number {
     const p = this.scanProgress();
     return p && p.total > 0 ? Math.round((p.current / p.total) * 100) : 0;
+  }
+
+  isTrackPlaying(track: Track): boolean {
+    return this.player.currentTrack()?.id === track.id;
+  }
+
+  async loadFolderRoot(): Promise<void> {
+    const root = await open({ directory: true, multiple: false });
+    if (!root || Array.isArray(root)) return;
+    this.loadingFolders.set(true);
+    try {
+      const node = await this.library.listSubfolders(root);
+      this.moveRoot.set(root);
+      this.folderTree.set([node as TreeNode]);
+      this.selectedFolder.set(node as TreeNode);
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "Error cargando carpetas",
+        detail: String(e),
+      });
+    } finally {
+      this.loadingFolders.set(false);
+    }
+  }
+
+  onFolderSelect(
+    event: TreeNode | TreeNode[] | null | undefined,
+  ): void {
+    if (Array.isArray(event)) {
+      this.selectedFolder.set(event[0] ?? null);
+    } else {
+      this.selectedFolder.set(event ?? null);
+    }
+  }
+
+  private insertFolderNode(
+    nodes: TreeNode[],
+    parentData: string,
+    newNode: TreeNode,
+  ): TreeNode[] {
+    return nodes.map((node) => {
+      if (node.data === parentData) {
+        const children = [...(node.children ?? []), newNode].sort((a, b) =>
+          (a.label ?? "").localeCompare(b.label ?? ""),
+        );
+        return { ...node, children, expanded: true, leaf: false };
+      }
+      if (node.children && node.children.length > 0) {
+        return {
+          ...node,
+          children: this.insertFolderNode(node.children, parentData, newNode),
+        };
+      }
+      return { ...node };
+    });
+  }
+
+  async createNewFolder(): Promise<void> {
+    const root = this.moveRoot();
+    if (!root) return;
+    const parent = (this.selectedFolder()?.data as string) ?? root;
+    const name = this.newFolderName().trim();
+    if (!name) return;
+    this.creatingFolder.set(true);
+    try {
+      const newPath = await this.library.createFolder(parent, name);
+      this.messages.add({
+        severity: "success",
+        summary: "Carpeta creada",
+        detail: newPath,
+      });
+      this.newFolderName.set("");
+      const newNode: TreeNode = {
+        label: name,
+        data: newPath,
+        children: [],
+      };
+      this.folderTree.set(
+        this.insertFolderNode(this.folderTree(), parent, newNode),
+      );
+      this.selectedFolder.set(newNode);
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo crear la carpeta",
+        detail: String(e),
+      });
+    } finally {
+      this.creatingFolder.set(false);
+    }
+  }
+
+  private buildBatchItems(): DuplicateBatchItem[] {
+    const ids = this.selectedTracks().map((t) => t.id);
+    return [{ keep_id: -1, remove_ids: ids }];
+  }
+
+  openMoveDialog(): void {
+    this.moveDialogVisible.set(true);
+  }
+
+  closeMoveDialog(): void {
+    this.moveDialogVisible.set(false);
+  }
+
+  async moveSelected(): Promise<void> {
+    const folder = this.selectedFolder();
+    if (!folder) {
+      this.messages.add({
+        severity: "warn",
+        summary: "Sin destino",
+        detail: "Selecciona una carpeta del árbol",
+      });
+      return;
+    }
+    const items = this.buildBatchItems();
+    if (items[0].remove_ids.length === 0) {
+      this.closeMoveDialog();
+      return;
+    }
+    try {
+      const result = await this.library.moveDuplicatesBatch(
+        items,
+        folder.data as string,
+      );
+      const sizeMb = (result.freed_bytes / 1024 / 1024).toFixed(1);
+      const errors =
+        result.errors.length > 0
+          ? ` (${result.errors.length} errores)`
+          : "";
+      this.messages.add({
+        severity: result.errors.length ? "warn" : "success",
+        summary: "Movimiento completado",
+        detail: `${result.affected} track(s) movidos, ${sizeMb} MB${errors}`,
+      });
+      this.selectedTracks.set([]);
+      this.closeMoveDialog();
+      const dest = folder.data as string;
+      const ids = new Set(items[0].remove_ids);
+      if (result.errors.length === 0) {
+        this.tracks.set(
+          this.tracks().map((t) =>
+            ids.has(t.id)
+              ? { ...t, moved: true, path: `${dest}\\${t.filename}` }
+              : t,
+          ),
+        );
+      } else {
+        this.reload();
+      }
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo mover",
+        detail: String(e),
+      });
+    }
+  }
+
+  openDeleteDialog(action: "delete_index" | "delete_file"): void {
+    this.batchAction.set(action);
+    this.batchDialogVisible.set(true);
+  }
+
+  closeBatchDialog(): void {
+    this.batchDialogVisible.set(false);
+    this.batchAction.set(null);
+  }
+
+  async executeDelete(): Promise<void> {
+    const items = this.buildBatchItems();
+    if (items[0].remove_ids.length === 0) {
+      this.closeBatchDialog();
+      return;
+    }
+    try {
+      const result = await this.library.deleteDuplicatesBatch(
+        items,
+        this.batchAction() === "delete_file",
+      );
+      const sizeMb = (result.freed_bytes / 1024 / 1024).toFixed(1);
+      const errors =
+        result.errors.length > 0
+          ? ` (${result.errors.length} errores)`
+          : "";
+      this.messages.add({
+        severity: result.errors.length ? "warn" : "success",
+        summary: "Eliminación completada",
+        detail: `${result.affected} track(s) eliminados, ${sizeMb} MB${errors}`,
+      });
+      this.selectedTracks.set([]);
+      this.closeBatchDialog();
+      this.reload();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo eliminar",
+        detail: String(e),
+      });
+    }
   }
 }

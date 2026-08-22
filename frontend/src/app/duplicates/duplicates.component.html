@@ -179,10 +179,13 @@
         [selection]="selectedFolder()"
         (selectionChange)="onFolderSelect($event)"
         styleClass="folder-tree"
+        scrollHeight="flex"
       />
-      <p class="selected-path">
-        Destino: <strong>{{ selectedFolder()?.data }}</strong>
-      </p>
+      <p-tag
+        icon="pi pi-folder"
+        [value]="'Destino: ' + (selectedFolder()?.data ?? '-')"
+        severity="info"
+      />
     } @else {
       <p class="empty-folders">Selecciona una carpeta raíz para ver las subcarpetas.</p>
     }

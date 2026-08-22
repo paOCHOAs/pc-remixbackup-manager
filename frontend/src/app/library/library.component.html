@@ -7,13 +7,37 @@
     [loading]="scanning()"
     (onClick)="addFolder()"
   />
-  @if (selectedTracks().length > 0) {
+  @if (selectedCount() > 0) {
     <p-button
       icon="pi pi-pencil"
-      [label]="'Editar ' + selectedTracks().length + (selectedTracks().length === 1 ? ' track' : ' tracks')"
+      [label]="'Editar ' + selectedCount() + (selectedCount() === 1 ? ' track' : ' tracks')"
       (onClick)="openEditor()"
       class="edit-button"
     />
+    <p-button
+      icon="pi pi-folder-open"
+      label="Mover"
+      [text]="true"
+      [disabled]="!selectedFolder() || selectedCount() === 0"
+      (onClick)="moveSelected()"
+    />
+    <p-button
+      icon="pi pi-trash"
+      label="Borrar del índice"
+      severity="secondary"
+      [text]="true"
+      (onClick)="openDeleteDialog('delete_index')"
+    />
+    <p-button
+      icon="pi pi-trash"
+      label="Borrar del disco"
+      severity="danger"
+      [text]="true"
+      (onClick)="openDeleteDialog('delete_file')"
+    />
+    <span class="selection-summary">
+      {{ selectedCount() }} seleccionados · {{ (selectedBytes() / 1024 / 1024).toFixed(1) }} MB
+    </span>
   }
   <input
     pInputText
@@ -33,100 +57,252 @@
   </div>
 }
 
-<p-table
-  [value]="tracks()"
-  [loading]="loading()"
-  [scrollable]="true"
-  scrollHeight="flex"
-  styleClass="p-datatable-sm library-table"
-  [selection]="selectedTracks()"
-  (selectionChange)="selectedTracks.set($event)"
-  selectionMode="multiple"
-  dataKey="id"
-  [metaKeySelection]="true"
->
-  <ng-template #header>
-    <tr>
-      <th style="width: 2.5rem">
-        <p-tableHeaderCheckbox />
-      </th>
-      <th pSortableColumn="title" style="width: 24%">
-        Título <p-sortIcon field="title" />
-      </th>
-      <th pSortableColumn="artist" style="width: 17%">
-        Artista <p-sortIcon field="artist" />
-      </th>
-      <th pSortableColumn="album" style="width: 15%">
-        Álbum <p-sortIcon field="album" />
-      </th>
-      <th pSortableColumn="genre" style="width: 10%">
-        Género <p-sortIcon field="genre" />
-      </th>
-      <th pSortableColumn="bpm" style="width: 7%">
-        BPM <p-sortIcon field="bpm" />
-      </th>
-      <th pSortableColumn="initial_key" style="width: 7%">
-        Key <p-sortIcon field="initial_key" />
-      </th>
-      <th pSortableColumn="duration_secs" style="width: 8%">
-        Duración <p-sortIcon field="duration_secs" />
-      </th>
-      <th pSortableColumn="bitrate_kbps" style="width: 8%">
-        Bitrate <p-sortIcon field="bitrate_kbps" />
-      </th>
-      <th pSortableColumn="file_format" style="width: 7%">
-        Formato <p-sortIcon field="file_format" />
-      </th>
-    </tr>
-  </ng-template>
-  <ng-template #body let-track>
-    <tr
-      [pSelectableRow]="track"
-      [style.height.px]="40"
-      (dblclick)="track && playTrack(track)"
+<div class="library-layout">
+  <div class="results">
+    <p-table
+      [value]="tracks()"
+      [loading]="loading()"
+      [scrollable]="true"
+      scrollHeight="flex"
+      styleClass="p-datatable-sm library-table"
+      [selection]="selectedTracks()"
+      (selectionChange)="selectedTracks.set($event)"
+      selectionMode="multiple"
+      dataKey="id"
+      [metaKeySelection]="true"
     >
-      @if (track) {
-        <td>
-          <p-tableCheckbox [value]="track" />
-        </td>
-        <td class="cell-title">{{ track.title || track.filename }}</td>
-        <td>{{ track.artist || "—" }}</td>
-        <td>{{ track.album || "—" }}</td>
-        <td>{{ track.genre || "—" }}</td>
-        <td>{{ track.bpm ? (track.bpm | number: "1.0-1") : "—" }}</td>
-        <td>
-          @if (track.initial_key) {
-            <p-tag [value]="track.initial_key" severity="info" />
+      <ng-template #header>
+        <tr>
+          <th style="width: 2.5rem">
+            <p-tableHeaderCheckbox />
+          </th>
+          <th pSortableColumn="title" style="width: 44%">
+            Título <p-sortIcon field="title" />
+          </th>
+          <th pSortableColumn="bpm" style="width: 8%">
+            BPM <p-sortIcon field="bpm" />
+          </th>
+          <th pSortableColumn="initial_key" style="width: 8%">
+            Key <p-sortIcon field="initial_key" />
+          </th>
+          <th pSortableColumn="duration_secs" style="width: 10%">
+            Duración <p-sortIcon field="duration_secs" />
+          </th>
+          <th pSortableColumn="bitrate_kbps" style="width: 10%">
+            Bitrate <p-sortIcon field="bitrate_kbps" />
+          </th>
+          <th style="width: 7rem"></th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-track>
+        <tr
+          [pSelectableRow]="track"
+          [class.playing]="isTrackPlaying(track)"
+          [class.moved]="track.moved"
+          [style.height.px]="40"
+          (dblclick)="track && playTrack(track)"
+        >
+          @if (track) {
+            <td>
+              <p-tableCheckbox [value]="track" [disabled]="track.moved" />
+            </td>
+            <td class="cell-title">
+              <div class="track-line">
+                @if (isTrackPlaying(track)) {
+                  <i class="pi pi-volume-up playing-icon" pTooltip="Reproduciendo"></i>
+                }
+                {{ track.title || track.filename }}
+                @if (track.file_format) {
+                  <p-tag
+                    [value]="track.file_format | uppercase"
+                    severity="secondary"
+                    class="format-tag"
+                  />
+                }
+              </div>
+              <div class="artist-line">{{ track.artist || "—" }}</div>
+            </td>
+            <td>{{ track.bpm ? (track.bpm | number: "1.0-1") : "—" }}</td>
+            <td>
+              @if (track.initial_key) {
+                <p-tag [value]="track.initial_key" severity="info" />
+              } @else {
+                —
+              }
+            </td>
+            <td>{{ formatDuration(track.duration_secs) }}</td>
+            <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
+            <td class="col-actions">
+              <div class="row-actions">
+                <p-button
+                  icon="pi pi-play"
+                  [text]="true"
+                  (onClick)="playTrack(track)"
+                  pTooltip="Escuchar"
+                />
+                <p-button
+                  icon="pi pi-folder-open"
+                  [text]="true"
+                  [disabled]="track.moved"
+                  (onClick)="moveTrackToSelected(track)"
+                  pTooltip="Mover a la carpeta seleccionada"
+                />
+                <p-button
+                  icon="pi pi-trash"
+                  [text]="true"
+                  severity="danger"
+                  (onClick)="openTrackDeleteDialog(track)"
+                  pTooltip="Eliminar"
+                />
+              </div>
+            </td>
           } @else {
-            —
+            <td><p-skeleton height="1rem" /></td>
+            <td colspan="6"><p-skeleton height="1rem" /></td>
           }
-        </td>
-        <td>{{ formatDuration(track.duration_secs) }}</td>
-        <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
-        <td>{{ track.file_format ? (track.file_format | uppercase) : "—" }}</td>
-      } @else {
-        <td><p-skeleton height="1rem" /></td>
-        <td colspan="9"><p-skeleton height="1rem" /></td>
-      }
-    </tr>
-  </ng-template>
-  <ng-template #loadingbody>
-    <tr [style.height.px]="40">
-      <td colspan="10"><p-skeleton height="1rem" /></td>
-    </tr>
-  </ng-template>
-  <ng-template #emptymessage>
-    <tr>
-      <td colspan="10" class="empty-message">
-        @if (searchText) {
-          Sin resultados para «{{ searchText }}».
-        } @else {
-          Tu biblioteca está vacía. Usa «Añadir carpeta» para escanear tu música.
-        }
-      </td>
-    </tr>
-  </ng-template>
-</p-table>
+        </tr>
+      </ng-template>
+      <ng-template #loadingbody>
+        <tr [style.height.px]="48">
+          <td colspan="7"><p-skeleton height="1rem" /></td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="7" class="empty-message">
+            @if (searchText) {
+              Sin resultados para «{{ searchText }}».
+            } @else {
+              Tu biblioteca está vacía. Usa «Añadir carpeta» para escanear tu música.
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+    <p-paginator
+      [first]="first()"
+      [rows]="pageSize"
+      [totalRecords]="totalCount()"
+      [rowsPerPageOptions]="[50, 100, 200]"
+      (onPageChange)="onPage($event)"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="{first} - {last} de {totalRecords}"
+      [alwaysShow]="false"
+    />
+  </div>
+
+  <aside class="folder-panel">
+    <div class="panel-header">
+      <h3>Carpeta destino</h3>
+      <p-button
+        icon="pi pi-folder-open"
+        label="Elegir raíz"
+        [loading]="loadingFolders()"
+        (onClick)="loadFolderRoot()"
+      />
+    </div>
+    @if (moveRoot()) {
+      <div class="new-folder">
+        <input
+          pInputText
+          [(ngModel)]="newFolderName"
+          placeholder="Nueva carpeta"
+          class="new-folder-input"
+          (keydown.enter)="createNewFolder()"
+        />
+        <p-button
+          icon="pi pi-plus"
+          label="Crear"
+          [loading]="creatingFolder()"
+          [disabled]="!newFolderName().trim()"
+          (onClick)="createNewFolder()"
+        />
+      </div>
+    }
+    @if (folderTree().length > 0) {
+      <p-tree
+        [value]="folderTree()"
+        selectionMode="single"
+        [selection]="selectedFolder()"
+        (selectionChange)="onFolderSelect($event)"
+        styleClass="folder-tree"
+        scrollHeight="flex"
+      />
+      <p-tag
+        icon="pi pi-folder"
+        [value]="'Destino: ' + (selectedFolder()?.data ?? '-')"
+        severity="info"
+      />
+      <p-button
+        icon="pi pi-folder-open"
+        label="Mover seleccionados"
+        [disabled]="!selectedFolder() || selectedCount() === 0"
+        (onClick)="moveSelected()"
+        class="move-button"
+      />
+    } @else {
+      <p class="empty-folders">Selecciona una carpeta raíz para ver las subcarpetas.</p>
+    }
+  </aside>
+</div>
+
+<p-dialog
+  [visible]="batchDialogVisible()"
+  (visibleChange)="batchDialogVisible.set($event)"
+  [header]="batchAction() === 'delete_file' ? 'Borrar del disco' : 'Borrar del índice'"
+  [modal]="true"
+  [style]="{ width: 'min(90vw, 25rem)' }"
+  [closable]="true"
+>
+  <p>
+    Vas a
+    <strong>
+      {{ batchAction() === 'delete_file' ? 'borrar del disco' : 'borrar del índice' }}
+    </strong>
+    {{ selectedCount() }} track(s).
+  </p>
+  <p>
+    Total aproximado: {{ (selectedBytes() / 1024 / 1024).toFixed(1) }} MB.
+  </p>
+  <div class="dialog-actions">
+    <p-button
+      label="Cancelar"
+      severity="secondary"
+      (onClick)="closeBatchDialog()"
+    />
+    <p-button
+      [label]="batchAction() === 'delete_file' ? 'Borrar del disco' : 'Borrar del índice'"
+      [severity]="batchAction() === 'delete_file' ? 'danger' : 'primary'"
+      (onClick)="executeDelete()"
+    />
+  </div>
+</p-dialog>
+
+<p-dialog
+  [visible]="trackDeleteDialogVisible()"
+  (visibleChange)="trackDeleteDialogVisible.set($event)"
+  [header]="pendingDeleteTrack()?.title || pendingDeleteTrack()?.filename"
+  [modal]="true"
+  [style]="{ width: 'min(90vw, 25rem)' }"
+  [closable]="true"
+>
+  <p>
+    ¿Cómo quieres eliminar <strong>{{ pendingDeleteTrack()?.title || pendingDeleteTrack()?.filename }}</strong>?
+  </p>
+  <p class="path-text">{{ pendingDeleteTrack()?.path }}</p>
+  <div class="dialog-actions">
+    <p-button
+      label="Solo del índice"
+      severity="secondary"
+      (onClick)="executeTrackDelete(false)"
+    />
+    <p-button
+      label="También del disco"
+      severity="danger"
+      (onClick)="executeTrackDelete(true)"
+    />
+  </div>
+</p-dialog>
 
 <app-metadata-editor
   [visible]="editorVisible()"

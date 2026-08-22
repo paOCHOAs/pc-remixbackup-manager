@@ -415,6 +415,28 @@ export class DuplicatesComponent implements OnInit {
     }
   }
 
+  private insertFolderNode(
+    nodes: TreeNode[],
+    parentData: string,
+    newNode: TreeNode,
+  ): TreeNode[] {
+    return nodes.map((node) => {
+      if (node.data === parentData) {
+        const children = [...(node.children ?? []), newNode].sort((a, b) =>
+          (a.label ?? "").localeCompare(b.label ?? ""),
+        );
+        return { ...node, children, expanded: true, leaf: false };
+      }
+      if (node.children && node.children.length > 0) {
+        return {
+          ...node,
+          children: this.insertFolderNode(node.children, parentData, newNode),
+        };
+      }
+      return { ...node };
+    });
+  }
+
   async createNewFolder(): Promise<void> {
     const root = this.moveRoot();
     if (!root) {
@@ -437,13 +459,15 @@ export class DuplicatesComponent implements OnInit {
         detail: newPath,
       });
       this.newFolderName.set("");
-      const node = await this.library.listSubfolders(root);
-      this.folderTree.set([node as TreeNode]);
-      this.selectedFolder.set({
+      const newNode: TreeNode = {
         label: name,
         data: newPath,
         children: [],
-      } as TreeNode);
+      };
+      this.folderTree.set(
+        this.insertFolderNode(this.folderTree(), parent, newNode),
+      );
+      this.selectedFolder.set(newNode);
     } catch (e) {
       this.messages.add({
         severity: "error",
