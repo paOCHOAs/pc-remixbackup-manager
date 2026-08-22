@@ -1,0 +1,64 @@
+<p-toast />
+
+<div class="duplicates-header">
+  <h2>Detección de duplicados</h2>
+  <div class="actions">
+    <p-select
+      [(ngModel)]="mode"
+      [options]="modes"
+      optionLabel="label"
+      optionValue="value"
+      (onChange)="search()"
+    />
+    <p-button
+      icon="pi pi-refresh"
+      label="Buscar"
+      [loading]="loading()"
+      (onClick)="search()"
+    />
+  </div>
+</div>
+
+@if (groups(); as g) {
+  <div class="results">
+    @if (g.length === 0 && !loading()) {
+      <p class="empty">No se encontraron duplicados con este criterio.</p>
+    }
+
+    @for (group of g; track group.key) {
+      <p-panel [header]="group.key + ' (' + group.tracks.length + ')'" [toggleable]="true">
+        <p-table [value]="group.tracks" styleClass="p-datatable-sm">
+          <ng-template #header>
+            <tr>
+              <th>Archivo</th>
+              <th>Título</th>
+              <th>Artista</th>
+              <th>Duración</th>
+              <th>Bitrate</th>
+              <th>Ruta</th>
+              <th style="width: 8rem"></th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-track>
+            <tr>
+              <td>{{ track.filename }}</td>
+              <td>{{ track.title || "—" }}</td>
+              <td>{{ track.artist || "—" }}</td>
+              <td>{{ formatDuration(track.duration_secs) }}</td>
+              <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
+              <td class="path-cell">{{ track.path }}</td>
+              <td>
+                <p-button
+                  icon="pi pi-check"
+                  label="Mantener"
+                  [text]="true"
+                  (onClick)="keepBest(group, track)"
+                />
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-panel>
+    }
+  </div>
+}

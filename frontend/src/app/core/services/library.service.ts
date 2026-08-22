@@ -2,6 +2,7 @@ import { Injectable, NgZone } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { Observable } from "rxjs";
+import { DuplicateGroup } from "../models/duplicate-group.model";
 import { LibraryFolder } from "../models/library-folder.model";
 import { ScanProgress, ScanResult, Track } from "../models/track.model";
 
@@ -83,6 +84,14 @@ export class LibraryService {
 
   rescanAllLibraryFolders(): Promise<ScanResult> {
     return invoke<ScanResult>("rescan_all_library_folders");
+  }
+
+  findDuplicates(mode: "exact" | "filename" | "duration"): Promise<DuplicateGroup[]> {
+    return invoke<DuplicateGroup[]>("find_duplicates", { mode });
+  }
+
+  removeDuplicate(id: number): Promise<void> {
+    return invoke<void>("remove_duplicate", { id });
   }
 
   scanProgress$(): Observable<ScanProgress> {

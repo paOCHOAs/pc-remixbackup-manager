@@ -1,5 +1,6 @@
 pub mod library_folders;
 
+use crate::duplicates::{self, DuplicateGroup};
 use crate::metadata::{write, MetadataUpdate};
 use crate::models::{ScanResult, Track};
 use crate::scanner;
@@ -23,7 +24,7 @@ const SORTABLE_COLUMNS: &[&str] = &[
     "filename",
 ];
 
-fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
+pub fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
     Ok(Track {
         id: row.get("id")?,
         path: row.get("path")?,
@@ -261,4 +262,28 @@ pub fn update_tracks_metadata(
     }
 
     Ok(BatchUpdateResult { updated, errors })
+}
+
+#[tauri::command]
+pub fn find_duplicates(
+    mode: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<DuplicateGroup>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let mode = match mode.as_str() {
+        "exact" => duplicates::DuplicateMode::Exact,
+        "filename" => duplicates::DuplicateMode::Filename,
+        "duration" => duplicates::DuplicateMode::DurationAndSize,
+        _ => duplicates::DuplicateMode::Exact,
+    };
+    duplicates::find(&conn, &mode)
+}
+
+#[tauri::command]
+pub fn remove_duplicate(
+    id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    duplicates::remove_track(&conn, id)
 }

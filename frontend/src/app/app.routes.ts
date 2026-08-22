@@ -24,9 +24,7 @@ export const routes: Routes = [
   {
     path: "duplicates",
     loadComponent: () =>
-      import("./shared/placeholder/placeholder.component").then(
-        (m) => m.PlaceholderComponent,
-      ),
+      import("./duplicates/duplicates.component").then((m) => m.DuplicatesComponent),
     data: { title: "Detección de duplicados" },
   },
   {
