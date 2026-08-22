@@ -2,6 +2,7 @@ mod audio;
 mod commands;
 mod database;
 mod duplicates;
+mod identification;
 mod metadata;
 mod models;
 mod scanner;
@@ -53,9 +54,11 @@ pub fn run() {
             commands::library_folders::clean_library,
             commands::library_folders::clear_library,
             commands::find_duplicates,
+            commands::identify_track,
             commands::remove_duplicate,
             commands::remove_duplicates_except,
-            commands::remove_track_and_file
+            commands::remove_track_and_file,
+            commands::get_playable_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -30,8 +30,8 @@ export const routes: Routes = [
   {
     path: "analyzer",
     loadComponent: () =>
-      import("./shared/placeholder/placeholder.component").then(
-        (m) => m.PlaceholderComponent,
+      import("./analyzer/analyzer.component").then(
+        (m) => m.AnalyzerComponent,
       ),
     data: { title: "Analizador de audio" },
   },

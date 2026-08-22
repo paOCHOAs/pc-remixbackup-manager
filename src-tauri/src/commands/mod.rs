@@ -1,6 +1,7 @@
 pub mod library_folders;
 
 use crate::duplicates::{self, DuplicateGroup};
+use crate::identification;
 use crate::metadata::{write, MetadataUpdate};
 use crate::models::{ScanResult, Track};
 use crate::scanner;
@@ -20,6 +21,7 @@ const SORTABLE_COLUMNS: &[&str] = &[
     "initial_key",
     "bitrate_kbps",
     "file_size",
+    "file_format",
     "date_added",
     "filename",
 ];
@@ -39,6 +41,7 @@ pub fn row_to_track(row: &rusqlite::Row) -> rusqlite::Result<Track> {
         initial_key: row.get("initial_key")?,
         bitrate_kbps: row.get("bitrate_kbps")?,
         sample_rate: row.get("sample_rate")?,
+        file_format: row.get("file_format")?,
         file_size: row.get("file_size")?,
         date_added: row.get("date_added")?,
         date_modified: row.get("date_modified")?,
@@ -313,6 +316,15 @@ pub fn remove_duplicates_except(
 }
 
 #[tauri::command]
+pub fn identify_track(
+    id: i64,
+    state: State<'_, AppState>,
+) -> Result<Track, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    identification::identify(&conn, id)
+}
+
+#[tauri::command]
 pub fn remove_track_and_file(
     id: i64,
     state: State<'_, AppState>,
@@ -328,4 +340,81 @@ pub fn remove_track_and_file(
     }
     duplicates::remove_track(&conn, id)?;
     Ok(path)
+}
+
+fn needs_transcode(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| {
+            let e = e.to_lowercase();
+            e == "aif" || e == "aiff"
+        })
+        .unwrap_or(false)
+}
+
+fn path_hash(path: &std::path::Path) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    path.to_string_lossy().hash(&mut hasher);
+    format!("{:x}", hasher.finish())
+}
+
+#[tauri::command]
+pub async fn get_playable_path(path: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let input = std::path::Path::new(&path);
+        if !input.exists() {
+            return Err("Archivo no encontrado".into());
+        }
+        if !needs_transcode(input) {
+            return Ok(path);
+        }
+
+        let input_modified = input
+            .metadata()
+            .and_then(|m| m.modified())
+            .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+
+        let cache_dir = std::env::temp_dir().join("djmm-playback-cache");
+        std::fs::create_dir_all(&cache_dir).map_err(|e| e.to_string())?;
+        let output = cache_dir.join(format!("{}.wav", path_hash(input)));
+
+        if let Ok(meta) = output.metadata() {
+            if let Ok(out_modified) = meta.modified() {
+                if out_modified >= input_modified {
+                    return Ok(output.to_string_lossy().into_owned());
+                }
+            }
+            let _ = std::fs::remove_file(&output);
+        }
+
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                &path,
+                "-ar",
+                "44100",
+                "-sample_fmt",
+                "s16",
+                "-ac",
+                "2",
+                "-f",
+                "wav",
+            ])
+            .arg(&output)
+            .status()
+            .map_err(|e| format!("No se pudo ejecutar ffmpeg: {e}"))?;
+
+        if !status.success() {
+            return Err("FFmpeg no pudo convertir el archivo".into());
+        }
+
+        Ok(output.to_string_lossy().into_owned())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

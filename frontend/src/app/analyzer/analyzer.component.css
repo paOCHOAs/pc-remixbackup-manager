@@ -1,0 +1,42 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.analyzer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.search-input {
+  flex: 1;
+  max-width: 480px;
+}
+
+.track-count {
+  margin-left: auto;
+  font-size: 0.875rem;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+p-table {
+  flex: 1;
+  min-height: 0;
+  display: block;
+}
+
+.path-tag {
+  white-space: normal;
+  word-break: break-all;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 3rem 1rem !important;
+  opacity: 0.6;
+}

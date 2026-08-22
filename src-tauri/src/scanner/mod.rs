@@ -99,14 +99,18 @@ fn index_file(conn: &Connection, path: &Path) -> Result<IndexOutcome, String> {
         .file_name()
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_default();
+    let file_format = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase());
 
     let modified_str = modified.map(format_unix_timestamp);
 
     conn.execute(
         r#"
         INSERT INTO tracks (path, filename, title, artist, album, genre, year,
-            duration_secs, bpm, initial_key, bitrate_kbps, sample_rate, file_size, date_modified)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+            duration_secs, bpm, initial_key, bitrate_kbps, sample_rate, file_size, date_modified, file_format)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
         ON CONFLICT(path) DO UPDATE SET
             filename = excluded.filename,
             title = excluded.title,
@@ -120,7 +124,8 @@ fn index_file(conn: &Connection, path: &Path) -> Result<IndexOutcome, String> {
             bitrate_kbps = excluded.bitrate_kbps,
             sample_rate = excluded.sample_rate,
             file_size = excluded.file_size,
-            date_modified = excluded.date_modified
+            date_modified = excluded.date_modified,
+            file_format = excluded.file_format
         "#,
         params![
             path_str,
@@ -136,7 +141,8 @@ fn index_file(conn: &Connection, path: &Path) -> Result<IndexOutcome, String> {
             meta.bitrate_kbps,
             meta.sample_rate,
             file_size,
-            modified_str
+            modified_str,
+            file_format
         ],
     )
     .map_err(|e| e.to_string())?;

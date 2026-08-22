@@ -6,6 +6,7 @@ use std::path::Path;
 const MIGRATIONS: &[&str] = &[
     include_str!("../../../database/migrations/0001_init.sql"),
     include_str!("../../../database/migrations/0002_library_folders.sql"),
+    include_str!("../../../database/migrations/0003_track_format.sql"),
 ];
 
 pub fn open(db_path: &Path) -> rusqlite::Result<Connection> {

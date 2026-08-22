@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewChild, signal } from "@angular/core";
+import { Component, OnDestroy, OnInit, signal } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -6,7 +6,7 @@ import { Subject, Subscription, debounceTime } from "rxjs";
 import { ButtonModule } from "primeng/button";
 import { InputTextModule } from "primeng/inputtext";
 import { ProgressBarModule } from "primeng/progressbar";
-import { Table, TableLazyLoadEvent, TableModule } from "primeng/table";
+import { TableModule } from "primeng/table";
 import { SkeletonModule } from "primeng/skeleton";
 import { TagModule } from "primeng/tag";
 import { ToastModule } from "primeng/toast";
@@ -36,8 +36,6 @@ import { ScanProgress, Track } from "../core/models/track.model";
   styleUrl: "./library.component.css",
 })
 export class LibraryComponent implements OnInit, OnDestroy {
-  @ViewChild("dt") table?: Table;
-
   tracks = signal<Track[]>([]);
   totalCount = signal(0);
   loading = signal(false);
@@ -48,7 +46,6 @@ export class LibraryComponent implements OnInit, OnDestroy {
   selectedTracks = signal<Track[]>([]);
   editorVisible = signal(false);
 
-  readonly rowHeight = 40;
   readonly pageSize = 100;
 
   private search$ = new Subject<string>();
@@ -71,6 +68,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.subs.add(
       this.library.scanProgress$().subscribe((p) => this.scanProgress.set(p)),
     );
+    this.reload();
   }
 
   ngOnDestroy(): void {
@@ -81,47 +79,21 @@ export class LibraryComponent implements OnInit, OnDestroy {
     this.search$.next(value);
   }
 
-  /** Resets scroll position and reloads from the backend (search/scan changes). */
-  private reload(): void {
+  /** Loads the first page of tracks (search/scan changes). */
+  private async reload(): Promise<void> {
+    this.loading.set(true);
     this.tracks.set([]);
     this.selectedTracks.set([]);
-    if (this.table) {
-      this.table.first = 0;
-      this.table.firstChange.emit(0);
-      this.table.resetScrollTop();
-    }
-    this.loadChunk({
-      first: 0,
-      rows: this.pageSize,
-      sortField: this.table?.sortField ?? undefined,
-      sortOrder: this.table?.sortOrder,
-    });
-  }
-
-  async loadChunk(event: TableLazyLoadEvent): Promise<void> {
-    const first = event.first ?? 0;
-    const rows = event.rows ?? this.pageSize;
-    const sortField =
-      typeof event.sortField === "string" ? event.sortField : undefined;
-    const sortDesc = event.sortOrder === -1;
-
-    this.loading.set(true);
     try {
-      const [chunk, total] = await Promise.all([
+      const [tracks, total] = await Promise.all([
         this.library.getTracks({
           search: this.searchText,
-          sortField,
-          sortDesc,
-          limit: rows,
-          offset: first,
+          limit: this.pageSize,
+          offset: 0,
         }),
         this.library.getTrackCount(this.searchText),
       ]);
-
-      const buffer = [...this.tracks()];
-      buffer.length = total;
-      chunk.forEach((t, i) => (buffer[first + i] = t));
-      this.tracks.set(buffer);
+      this.tracks.set(tracks);
       this.totalCount.set(total);
     } catch (e) {
       this.messages.add({

@@ -15,6 +15,7 @@ pub struct Track {
     pub initial_key: Option<String>,
     pub bitrate_kbps: Option<i64>,
     pub sample_rate: Option<i64>,
+    pub file_format: Option<String>,
     pub file_size: i64,
     pub date_added: String,
     pub date_modified: Option<String>,

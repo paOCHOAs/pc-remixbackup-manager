@@ -34,19 +34,13 @@
 }
 
 <p-table
-  #dt
   [value]="tracks()"
-  [lazy]="true"
-  (onLazyLoad)="loadChunk($event)"
-  [totalRecords]="totalCount()"
   [loading]="loading()"
   [scrollable]="true"
   scrollHeight="flex"
-  [virtualScroll]="true"
-  [virtualScrollItemSize]="rowHeight"
-  [rows]="pageSize"
   styleClass="p-datatable-sm library-table"
-  [(selection)]="selectedTracks"
+  [selection]="selectedTracks()"
+  (selectionChange)="selectedTracks.set($event)"
   selectionMode="multiple"
   dataKey="id"
   [metaKeySelection]="true"
@@ -80,12 +74,15 @@
       <th pSortableColumn="bitrate_kbps" style="width: 8%">
         Bitrate <p-sortIcon field="bitrate_kbps" />
       </th>
+      <th pSortableColumn="file_format" style="width: 7%">
+        Formato <p-sortIcon field="file_format" />
+      </th>
     </tr>
   </ng-template>
   <ng-template #body let-track>
     <tr
       [pSelectableRow]="track"
-      [style.height.px]="rowHeight"
+      [style.height.px]="40"
       (dblclick)="track && playTrack(track)"
     >
       @if (track) {
@@ -106,20 +103,21 @@
         </td>
         <td>{{ formatDuration(track.duration_secs) }}</td>
         <td>{{ track.bitrate_kbps ? track.bitrate_kbps + " kbps" : "—" }}</td>
+        <td>{{ track.file_format ? (track.file_format | uppercase) : "—" }}</td>
       } @else {
         <td><p-skeleton height="1rem" /></td>
-        <td colspan="8"><p-skeleton height="1rem" /></td>
+        <td colspan="9"><p-skeleton height="1rem" /></td>
       }
     </tr>
   </ng-template>
   <ng-template #loadingbody>
-    <tr [style.height.px]="rowHeight">
-      <td colspan="9"><p-skeleton height="1rem" /></td>
+    <tr [style.height.px]="40">
+      <td colspan="10"><p-skeleton height="1rem" /></td>
     </tr>
   </ng-template>
   <ng-template #emptymessage>
     <tr>
-      <td colspan="9" class="empty-message">
+      <td colspan="10" class="empty-message">
         @if (searchText) {
           Sin resultados para «{{ searchText }}».
         } @else {
@@ -131,7 +129,8 @@
 </p-table>
 
 <app-metadata-editor
-  [(visible)]="editorVisible"
+  [visible]="editorVisible()"
+  (visibleChange)="editorVisible.set($event)"
   [tracks]="selectedTracks()"
   (saved)="saveMetadata($event)"
 />

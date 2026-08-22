@@ -1,0 +1,76 @@
+<p-toast />
+
+<div class="analyzer-toolbar">
+  <p-button
+    icon="pi pi-refresh"
+    label="Analizar"
+    [loading]="loading()"
+    (onClick)="reload()"
+  />
+  <input
+    pInputText
+    type="text"
+    placeholder="Buscar por título, artista, género..."
+    class="search-input"
+    [(ngModel)]="searchText"
+    (ngModelChange)="onSearchChange($event)"
+  />
+  <span class="track-count">{{ totalCount() }} tracks</span>
+</div>
+
+<p-table
+  [value]="tracks()"
+  [loading]="loading()"
+  [scrollable]="true"
+  scrollHeight="flex"
+  styleClass="p-datatable-sm"
+>
+  <ng-template #header>
+    <tr>
+      <th style="width: 24%">Título</th>
+      <th style="width: 15%">Artista</th>
+      <th style="width: 12%">Género</th>
+      <th style="width: 7%">Año</th>
+      <th style="width: 30%">Backup sugerido</th>
+      <th style="width: 12%">Acción</th>
+    </tr>
+  </ng-template>
+  <ng-template #body let-track>
+    <tr [style.height.px]="40">
+      <td>{{ track.title || track.filename }}</td>
+      <td>{{ track.artist || "—" }}</td>
+      <td>{{ track.genre || "—" }}</td>
+      <td>{{ track.year || "—" }}</td>
+      <td>
+        <p-tag
+          [value]="suggestBackupPath(track)"
+          severity="info"
+          styleClass="path-tag"
+        />
+      </td>
+      <td>
+        <p-button
+          icon="pi pi-search"
+          label="Identificar"
+          [text]="true"
+          [raised]="true"
+          size="small"
+          [loading]="identifying()"
+          (onClick)="identify(track)"
+        />
+      </td>
+    </tr>
+  </ng-template>
+  <ng-template #loadingbody>
+    <tr [style.height.px]="40">
+      <td colspan="6"><p-skeleton height="1rem" /></td>
+    </tr>
+  </ng-template>
+  <ng-template #emptymessage>
+    <tr>
+      <td colspan="6" class="empty-message">
+        Sin tracks para analizar. Añade carpetas desde la biblioteca.
+      </td>
+    </tr>
+  </ng-template>
+</p-table>

@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, OnInit } from "@angular/core";
 import { Router, RouterOutlet } from "@angular/router";
 import { PlayerBarComponent } from "./player/player-bar.component";
 
@@ -14,7 +14,7 @@ interface NavItem {
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   navItems: NavItem[] = [
     { label: "Biblioteca", icon: "pi pi-list", route: "/library" },
     { label: "Playlists", icon: "pi pi-play-circle", route: "/playlists" },
@@ -25,6 +25,16 @@ export class AppComponent {
   ];
 
   constructor(private router: Router) {}
+
+  ngOnInit(): void {
+    if (typeof (window as any).__TAURI__ !== "undefined") {
+      document.addEventListener(
+        "contextmenu",
+        (event) => event.preventDefault(),
+        true,
+      );
+    }
+  }
 
   goTo(route: string): void {
     console.log("navigate to", route);

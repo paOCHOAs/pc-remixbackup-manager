@@ -119,6 +119,10 @@ export class LibraryService {
     return invoke<number>("remove_duplicates_except", { keep, ids });
   }
 
+  identifyTrack(id: number): Promise<Track> {
+    return invoke<Track>("identify_track", { id });
+  }
+
   scanProgress$(): Observable<ScanProgress> {
     return new Observable<ScanProgress>((subscriber) => {
       let unlisten: UnlistenFn | undefined;

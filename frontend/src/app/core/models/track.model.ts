@@ -12,6 +12,7 @@ export interface Track {
   initial_key: string | null;
   bitrate_kbps: number | null;
   sample_rate: number | null;
+  file_format: string | null;
   file_size: number;
   date_added: string;
   date_modified: string | null;
