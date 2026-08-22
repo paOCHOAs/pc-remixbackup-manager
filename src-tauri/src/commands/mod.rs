@@ -418,3 +418,89 @@ pub async fn get_playable_path(path: String) -> Result<String, String> {
     .await
     .map_err(|e| e.to_string())?
 }
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FolderNode {
+    pub label: String,
+    pub data: String,
+    pub children: Vec<FolderNode>,
+}
+
+fn build_folder_node(path: &std::path::Path) -> Result<FolderNode, String> {
+    let label = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("Carpeta")
+        .to_string();
+    let data = path.to_string_lossy().to_string();
+    let mut entries: Vec<_> = std::fs::read_dir(path)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+        .collect();
+    entries.sort_by(|a, b| {
+        a.file_name()
+            .to_string_lossy()
+            .cmp(&b.file_name().to_string_lossy())
+    });
+    let mut children = Vec::with_capacity(entries.len());
+    for e in entries {
+        children.push(build_folder_node(&e.path())?);
+    }
+    Ok(FolderNode { label, data, children })
+}
+
+#[tauri::command]
+pub fn list_subfolders(root: String) -> Result<FolderNode, String> {
+    let path = std::path::Path::new(&root);
+    if !path.is_dir() {
+        return Err("La ruta no es una carpeta".into());
+    }
+    build_folder_node(path)
+}
+
+#[tauri::command]
+pub fn move_track_to_folder(
+    id: i64,
+    folder: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let (old_path, filename): (String, String) = conn
+        .query_row(
+            "SELECT path, filename FROM tracks WHERE id = ?1",
+            params![id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+    let old = std::path::Path::new(&old_path);
+    let new_path = std::path::Path::new(&folder).join(&filename);
+    let new_path_str = new_path.to_string_lossy().to_string();
+    if new_path.exists() {
+        return Err("Ya existe un archivo con ese nombre en la carpeta destino".into());
+    }
+    if !old.exists() {
+        return Err("El archivo original no existe".into());
+    }
+    if std::fs::rename(&old, &new_path).is_err() {
+        std::fs::copy(&old, &new_path)
+            .map_err(|e| format!("No se pudo copiar el archivo: {e}"))?;
+        std::fs::remove_file(&old)
+            .map_err(|e| format!("Copiado, pero no se pudo borrar el original: {e}"))?;
+    }
+    let modified = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    conn.execute(
+        "UPDATE tracks SET path = ?1, filename = ?2, date_modified = ?3 WHERE id = ?4",
+        params![
+            new_path_str,
+            filename,
+            crate::scanner::format_unix_timestamp(modified),
+            id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(new_path_str)
+}

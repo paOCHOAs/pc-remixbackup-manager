@@ -58,7 +58,9 @@ pub fn run() {
             commands::remove_duplicate,
             commands::remove_duplicates_except,
             commands::remove_track_and_file,
-            commands::get_playable_path
+            commands::get_playable_path,
+            commands::list_subfolders,
+            commands::move_track_to_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

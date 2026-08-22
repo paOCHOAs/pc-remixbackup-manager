@@ -4,12 +4,13 @@ import {
   ElementRef,
   OnDestroy,
   ViewChild,
+  computed,
   effect,
   signal,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
 import WaveSurfer from "wavesurfer.js";
 import { ButtonModule } from "primeng/button";
@@ -35,6 +36,11 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
   duration = signal(0);
   volume = 80;
   isSeeking = false;
+  externalLabel = computed(() => {
+    const path = this.track()?.path ?? "";
+    const ext = path.split(".").pop()?.toLowerCase();
+    return ext === "aif" || ext === "aiff" ? "Abrir con QuickTime" : "Reproductor del sistema";
+  });
 
   private ws: WaveSurfer | null = null;
   private viewReady = false;
@@ -71,7 +77,7 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
     this.ws?.destroy();
   }
 
-  private load(track: Track): void {
+  private async load(track: Track): Promise<void> {
     this.track.set(track);
     this.error.set(null);
     this.loading.set(true);
@@ -79,39 +85,46 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
     this.currentTime.set(0);
     this.isSeeking = false;
     this.duration.set(track.duration_secs ?? 0);
-
     this.ws?.destroy();
-    this.ws = WaveSurfer.create({
-      container: this.waveformRef.nativeElement,
-      height: 2,
-      waveColor: "transparent",
-      progressColor: "#3b82f6",
-      cursorColor: "transparent",
-      cursorWidth: 0,
-      barWidth: 0,
-      barGap: 0,
-      normalize: true,
-      backend: "MediaElement",
-      peaks: [new Float32Array([0, 0])],
-      url: convertFileSrc(track.path),
-    });
+    this.ws = null;
 
-    this.ws.on("ready", () => {
-      this.loading.set(false);
-      this.duration.set(this.ws!.getDuration());
-      this.ws!.setVolume(this.volume / 100);
-      this.ws!.play();
-    });
-    this.ws.on("play", () => this.playing.set(true));
-    this.ws.on("pause", () => this.playing.set(false));
-    this.ws.on("finish", () => this.playing.set(false));
-    this.ws.on("timeupdate", (t) => {
-      if (!this.isSeeking) this.currentTime.set(t);
-    });
-    this.ws.on("error", (e) => {
+    try {
+      const playablePath = await invoke<string>("get_playable_path", { path: track.path });
+      this.ws = WaveSurfer.create({
+        container: this.waveformRef.nativeElement,
+        height: 2,
+        waveColor: "transparent",
+        progressColor: "#3b82f6",
+        cursorColor: "transparent",
+        cursorWidth: 0,
+        barWidth: 0,
+        barGap: 0,
+        normalize: true,
+        backend: "MediaElement",
+        peaks: [new Float32Array([0, 0])],
+        url: convertFileSrc(playablePath),
+      });
+
+      this.ws.on("ready", () => {
+        this.loading.set(false);
+        this.duration.set(this.ws!.getDuration());
+        this.ws!.setVolume(this.volume / 100);
+        this.ws!.play();
+      });
+      this.ws.on("play", () => this.playing.set(true));
+      this.ws.on("pause", () => this.playing.set(false));
+      this.ws.on("finish", () => this.playing.set(false));
+      this.ws.on("timeupdate", (t) => {
+        if (!this.isSeeking) this.currentTime.set(t);
+      });
+      this.ws.on("error", (e) => {
+        this.loading.set(false);
+        this.error.set(`No se pudo reproducir: ${e}`);
+      });
+    } catch (e) {
       this.loading.set(false);
       this.error.set(`No se pudo reproducir: ${e}`);
-    });
+    }
   }
 
   togglePlay(): void {
@@ -122,7 +135,9 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
     const t = this.track();
     if (!t) return;
     try {
-      await openPath(t.path);
+      const ext = t.path.split(".").pop()?.toLowerCase();
+      const openWith = ext === "aif" || ext === "aiff" ? "QuickTimePlayer" : undefined;
+      await openPath(t.path, openWith);
     } catch (e) {
       this.error.set(`No se pudo abrir: ${e}`);
     }

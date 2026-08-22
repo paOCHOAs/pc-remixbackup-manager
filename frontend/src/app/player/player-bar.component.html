@@ -36,7 +36,7 @@
       <span class="status error">{{ err }}</span>
       <p-button
         icon="pi pi-external-link"
-        label="Reproductor del sistema"
+        [label]="externalLabel()"
         [text]="true"
         severity="secondary"
         (onClick)="openExternal()"

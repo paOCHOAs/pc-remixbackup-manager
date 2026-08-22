@@ -9,7 +9,9 @@ import { TableModule } from "primeng/table";
 import { TagModule } from "primeng/tag";
 import { ToastModule } from "primeng/toast";
 import { TooltipModule } from "primeng/tooltip";
-import { MessageService } from "primeng/api";
+import { TreeModule } from "primeng/tree";
+import { MessageService, TreeNode } from "primeng/api";
+import { open } from "@tauri-apps/plugin-dialog";
 import { LibraryService } from "../core/services/library.service";
 import { PlayerService } from "../core/services/player.service";
 import { Track } from "../core/models/track.model";
@@ -29,6 +31,7 @@ import { DuplicateGroup } from "../core/models/duplicate-group.model";
     TagModule,
     ToastModule,
     TooltipModule,
+    TreeModule,
   ],
   providers: [MessageService],
   templateUrl: "./duplicates.component.html",
@@ -40,6 +43,10 @@ export class DuplicatesComponent implements OnInit {
   deleteDialogVisible = signal(false);
   deleteStep = signal<"choose" | "confirm-file">("choose");
   pendingDelete = signal<Track | null>(null);
+  moveRoot = signal<string | null>(null);
+  folderTree = signal<TreeNode[]>([]);
+  selectedFolder = signal<TreeNode | null>(null);
+  loadingFolders = signal(false);
   mode:
     | "exact"
     | "name_artist"
@@ -185,5 +192,62 @@ export class DuplicatesComponent implements OnInit {
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s.toString().padStart(2, "0")}`;
+  }
+
+  onFolderSelect(
+    event: TreeNode | TreeNode[] | null | undefined,
+  ): void {
+    if (Array.isArray(event)) {
+      this.selectedFolder.set(event[0] ?? null);
+    } else {
+      this.selectedFolder.set(event ?? null);
+    }
+  }
+
+  async loadFolderRoot(): Promise<void> {
+    const root = await open({ directory: true, multiple: false });
+    if (!root || Array.isArray(root)) return;
+    this.loadingFolders.set(true);
+    try {
+      const node = await this.library.listSubfolders(root);
+      this.moveRoot.set(root);
+      this.folderTree.set([node as TreeNode]);
+      this.selectedFolder.set(node as TreeNode);
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "Error cargando carpetas",
+        detail: String(e),
+      });
+    } finally {
+      this.loadingFolders.set(false);
+    }
+  }
+
+  async moveTrackToSelected(track: Track): Promise<void> {
+    const folder = this.selectedFolder();
+    if (!folder) {
+      this.messages.add({
+        severity: "warn",
+        summary: "Sin destino",
+        detail: "Selecciona una carpeta del árbol de la derecha",
+      });
+      return;
+    }
+    try {
+      const newPath = await this.library.moveTrackToFolder(track.id, folder.data as string);
+      this.messages.add({
+        severity: "success",
+        summary: "Archivo movido",
+        detail: newPath,
+      });
+      this.search();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo mover",
+        detail: String(e),
+      });
+    }
   }
 }

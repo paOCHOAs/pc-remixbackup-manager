@@ -115,6 +115,14 @@ export class LibraryService {
     return invoke<string>("remove_track_and_file", { id });
   }
 
+  listSubfolders(root: string): Promise<{ label: string; data: string; children: any[] }> {
+    return invoke<{ label: string; data: string; children: any[] }>("list_subfolders", { root });
+  }
+
+  moveTrackToFolder(id: number, folder: string): Promise<string> {
+    return invoke<string>("move_track_to_folder", { id, folder });
+  }
+
   removeDuplicatesExcept(keep: number, ids: number[]): Promise<number> {
     return invoke<number>("remove_duplicates_except", { keep, ids });
   }

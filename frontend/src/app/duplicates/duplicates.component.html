@@ -20,7 +20,8 @@
 </div>
 
 @if (groups(); as g) {
-  <div class="results">
+  <div class="duplicates-layout">
+    <div class="results">
     @if (g.length === 0 && !loading()) {
       <p class="empty">No se encontraron duplicados con este criterio.</p>
     }
@@ -72,6 +73,12 @@
                     pTooltip="Conservar este y borrar los demás"
                   />
                   <p-button
+                    icon="pi pi-folder-open"
+                    [text]="true"
+                    (onClick)="moveTrackToSelected(track)"
+                    pTooltip="Mover a la carpeta seleccionada"
+                  />
+                  <p-button
                     icon="pi pi-trash"
                     [text]="true"
                     severity="danger"
@@ -85,6 +92,33 @@
         </p-table>
       </p-panel>
     }
+  </div>
+
+  <aside class="folder-panel">
+    <div class="panel-header">
+      <h3>Carpeta destino</h3>
+      <p-button
+        icon="pi pi-folder-open"
+        label="Elegir raíz"
+        [loading]="loadingFolders()"
+        (onClick)="loadFolderRoot()"
+      />
+    </div>
+    @if (folderTree().length > 0) {
+      <p-tree
+        [value]="folderTree()"
+        selectionMode="single"
+        [selection]="selectedFolder()"
+        (selectionChange)="onFolderSelect($event)"
+        styleClass="folder-tree"
+      />
+      <p class="selected-path">
+        Destino: <strong>{{ selectedFolder()?.data }}</strong>
+      </p>
+    } @else {
+      <p class="empty-folders">Selecciona una carpeta raíz para ver las subcarpetas.</p>
+    }
+  </aside>
   </div>
 }
 
