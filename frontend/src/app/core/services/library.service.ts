@@ -1,9 +1,12 @@
-import { Injectable, NgZone } from "@angular/core";
+import { Injectable, NgZone, signal } from "@angular/core";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
+import { TreeNode } from "primeng/api";
 import { Observable } from "rxjs";
 import { DuplicateGroup } from "../models/duplicate-group.model";
 import { LibraryFolder } from "../models/library-folder.model";
+import { Playlist } from "../models/playlist.model";
 import { ScanProgress, ScanResult, Track } from "../models/track.model";
 
 export interface BatchUpdateResult {
@@ -97,12 +100,44 @@ export class LibraryService {
     return invoke<ScanResult>("rescan_all_library_folders");
   }
 
+  rescanLibraryFolder(id: number): Promise<ScanResult> {
+    return invoke<ScanResult>("rescan_library_folder", { id });
+  }
+
   cleanLibrary(): Promise<number> {
     return invoke<number>("clean_library");
   }
 
   clearLibrary(): Promise<number> {
     return invoke<number>("clear_library");
+  }
+
+  log(module: string, message: string): Promise<void> {
+    return invoke<void>("log_event", { module, message });
+  }
+
+  createPlaylist(name: string): Promise<Playlist> {
+    return invoke<Playlist>("create_playlist", { name });
+  }
+
+  getPlaylists(): Promise<Playlist[]> {
+    return invoke<Playlist[]>("get_playlists");
+  }
+
+  deletePlaylist(id: number): Promise<void> {
+    return invoke<void>("delete_playlist", { id });
+  }
+
+  addTrackToPlaylist(playlistId: number, trackId: number): Promise<void> {
+    return invoke<void>("add_track_to_playlist", { playlistId, trackId });
+  }
+
+  removeTrackFromPlaylist(playlistId: number, trackId: number): Promise<void> {
+    return invoke<void>("remove_track_from_playlist", { playlistId, trackId });
+  }
+
+  getPlaylistTracks(playlistId: number): Promise<Track[]> {
+    return invoke<Track[]>("get_playlist_tracks", { playlistId });
   }
 
   findDuplicates(
@@ -169,6 +204,82 @@ export class LibraryService {
       }).then((fn) => (unlisten = fn));
       return () => unlisten?.();
     });
+  }
+
+  moveRoot = signal<string | null>(null);
+  folderTree = signal<TreeNode[]>([]);
+  selectedFolder = signal<TreeNode | null>(null);
+  loadingFolders = signal(false);
+  newFolderName = signal("");
+  creatingFolder = signal(false);
+
+  async loadFolderRoot(): Promise<void> {
+    const root = await open({ directory: true, multiple: false });
+    if (!root || Array.isArray(root)) return;
+    this.loadingFolders.set(true);
+    try {
+      const node = await this.listSubfolders(root as string);
+      this.moveRoot.set(root as string);
+      this.folderTree.set([node as TreeNode]);
+      this.selectedFolder.set(node as TreeNode);
+    } finally {
+      this.loadingFolders.set(false);
+    }
+  }
+
+  onFolderSelect(event: TreeNode | TreeNode[] | null | undefined): void {
+    if (Array.isArray(event)) {
+      this.selectedFolder.set(event[0] ?? null);
+    } else {
+      this.selectedFolder.set(event ?? null);
+    }
+  }
+
+  private insertFolderNode(
+    nodes: TreeNode[],
+    parentData: string,
+    newNode: TreeNode,
+  ): TreeNode[] {
+    return nodes.map((node) => {
+      if (node.data === parentData) {
+        const children = [...(node.children ?? []), newNode].sort((a, b) =>
+          (a.label ?? "").localeCompare(b.label ?? ""),
+        );
+        return { ...node, children, expanded: true, leaf: false };
+      }
+      if (node.children && node.children.length > 0) {
+        return {
+          ...node,
+          children: this.insertFolderNode(node.children, parentData, newNode),
+        };
+      }
+      return { ...node };
+    });
+  }
+
+  async createNewFolder(): Promise<string | undefined> {
+    const root = this.moveRoot();
+    if (!root) return;
+    const parent = (this.selectedFolder()?.data as string) ?? root;
+    const name = this.newFolderName().trim();
+    if (!name) return;
+    this.creatingFolder.set(true);
+    try {
+      const newPath = await this.createFolder(parent, name);
+      this.newFolderName.set("");
+      const newNode: TreeNode = {
+        label: name,
+        data: newPath,
+        children: [],
+      };
+      this.folderTree.set(
+        this.insertFolderNode(this.folderTree(), parent, newNode),
+      );
+      this.selectedFolder.set(newNode);
+      return newPath;
+    } finally {
+      this.creatingFolder.set(false);
+    }
   }
 
   private toRustUpdate(update: TagUpdate) {

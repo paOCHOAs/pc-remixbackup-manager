@@ -346,3 +346,7 @@
 .app-dark .playing-icon {
   color: var(--p-primary-300, #93c5fd);
 }
+
+.move-button {
+  margin-top: 0.5rem;
+}

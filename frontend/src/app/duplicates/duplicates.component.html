@@ -94,7 +94,7 @@
             </tr>
           </ng-template>
           <ng-template #body let-track>
-            <tr [class.moved]="track.moved" [class.playing]="player.currentTrack()?.id === track.id">
+            <tr [class.moved]="track.moved" [class.playing]="player.currentTrack()?.id === track.id" (dblclick)="play(track)">
               <td class="col-select">
                 <p-checkbox
                   [binary]="true"
@@ -185,6 +185,13 @@
         icon="pi pi-folder"
         [value]="'Destino: ' + (selectedFolder()?.data ?? '-')"
         severity="info"
+      />
+      <p-button
+        icon="pi pi-folder-open"
+        label="Mover seleccionados"
+        [disabled]="!selectedFolder() || selectedTracks().size === 0"
+        (onClick)="moveSelected()"
+        class="move-button"
       />
     } @else {
       <p class="empty-folders">Selecciona una carpeta raíz para ver las subcarpetas.</p>

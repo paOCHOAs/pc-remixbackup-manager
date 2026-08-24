@@ -34,6 +34,7 @@ pub fn scan_folder(
         added: 0,
         updated: 0,
         skipped: 0,
+        missing: 0,
         errors: Vec::new(),
     };
 
@@ -125,7 +126,8 @@ fn index_file(conn: &Connection, path: &Path) -> Result<IndexOutcome, String> {
             sample_rate = excluded.sample_rate,
             file_size = excluded.file_size,
             date_modified = excluded.date_modified,
-            file_format = excluded.file_format
+            file_format = excluded.file_format,
+            moved = 0
         "#,
         params![
             path_str,
@@ -152,6 +154,51 @@ fn index_file(conn: &Connection, path: &Path) -> Result<IndexOutcome, String> {
     } else {
         IndexOutcome::Added
     })
+}
+
+pub fn validate_folder_tracks(conn: &mut Connection, folder: &str) -> Result<usize, String> {
+    let folder_path = Path::new(folder);
+    let mut prefix = folder.to_string();
+    if !prefix.ends_with(std::path::MAIN_SEPARATOR) {
+        prefix.push(std::path::MAIN_SEPARATOR);
+    }
+    let pattern = format!("{}%", prefix);
+
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    let mut stmt = tx
+        .prepare("SELECT id, path, moved FROM tracks WHERE path LIKE ?1")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![pattern], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut missing = 0usize;
+    for row in rows {
+        let (id, path, was_moved) = row.map_err(|e| e.to_string())?;
+        let track_path = Path::new(&path);
+        // Verificación final por componentes para evitar coincidencias de borde.
+        if track_path.starts_with(folder_path) {
+            let exists = track_path.exists();
+            let currently_moved = was_moved != 0;
+            if exists && currently_moved {
+                tx.execute("UPDATE tracks SET moved = 0 WHERE id = ?1", params![id])
+                    .map_err(|e| e.to_string())?;
+            } else if !exists && !currently_moved {
+                tx.execute("UPDATE tracks SET moved = 1 WHERE id = ?1", params![id])
+                    .map_err(|e| e.to_string())?;
+                missing += 1;
+            }
+        }
+    }
+    drop(stmt);
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(missing)
 }
 
 /// Formats a unix timestamp as "YYYY-MM-DD HH:MM:SS" (UTC) without external crates.

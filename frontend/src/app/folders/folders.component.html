@@ -52,6 +52,12 @@
       <td>{{ folder.last_scanned || "—" }}</td>
       <td>
         <p-button
+          icon="pi pi-refresh"
+          [text]="true"
+          [loading]="rescanningId() === folder.id"
+          (onClick)="rescanFolder(folder)"
+        />
+        <p-button
           icon="pi pi-trash"
           severity="danger"
           [text]="true"

@@ -23,6 +23,7 @@ export interface ScanResult {
   added: number;
   updated: number;
   skipped: number;
+  missing: number;
   errors: string[];
 }
 

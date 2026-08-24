@@ -3,7 +3,7 @@ pub mod library_folders;
 use crate::duplicates::{self, DuplicateGroup};
 use crate::identification;
 use crate::metadata::{write, MetadataUpdate};
-use crate::models::{BatchActionResult, DuplicateBatchItem, ScanResult, Track};
+use crate::models::{BatchActionResult, DuplicateBatchItem, Playlist, ScanResult, Track};
 use crate::scanner;
 use crate::AppState;
 use rusqlite::{params, Connection};
@@ -269,7 +269,7 @@ pub fn update_tracks_metadata(
 }
 
 #[tauri::command]
-pub fn find_duplicates(
+pub async fn find_duplicates(
     mode: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<DuplicateGroup>, String> {
@@ -510,7 +510,7 @@ pub fn move_track_to_folder(
 }
 
 #[tauri::command]
-pub fn keep_best_batch(
+pub async fn keep_best_batch(
     items: Vec<DuplicateBatchItem>,
     state: State<'_, AppState>,
 ) -> Result<BatchActionResult, String> {
@@ -553,7 +553,7 @@ pub fn keep_best_batch(
 }
 
 #[tauri::command]
-pub fn delete_duplicates_batch(
+pub async fn delete_duplicates_batch(
     items: Vec<DuplicateBatchItem>,
     delete_file: bool,
     state: State<'_, AppState>,
@@ -607,7 +607,7 @@ pub fn delete_duplicates_batch(
 }
 
 #[tauri::command]
-pub fn move_duplicates_batch(
+pub async fn move_duplicates_batch(
     items: Vec<DuplicateBatchItem>,
     folder: String,
     state: State<'_, AppState>,
@@ -709,4 +709,115 @@ pub fn create_folder(
     }
     std::fs::create_dir_all(&new_path).map_err(|e| e.to_string())?;
     Ok(new_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn log_event(
+    module: String,
+    message: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    crate::logger::append(&state.log_dir, &module, &message)
+}
+
+#[tauri::command]
+pub fn create_playlist(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<Playlist, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO playlists (name) VALUES (?1)",
+        params![name.trim()],
+    )
+    .map_err(|e| e.to_string())?;
+    let id = conn.last_insert_rowid();
+    conn.query_row(
+        "SELECT id, name, created_at FROM playlists WHERE id = ?1",
+        params![id],
+        |r| {
+            Ok(Playlist {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_playlists(state: State<'_, AppState>) -> Result<Vec<Playlist>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT id, name, created_at FROM playlists ORDER BY name")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| {
+            Ok(Playlist {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                created_at: r.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_playlist(id: i64, state: State<'_, AppState>) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM playlists WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn add_track_to_playlist(
+    playlist_id: i64,
+    track_id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?1, ?2, COALESCE((SELECT MAX(position) + 1 FROM playlist_tracks WHERE playlist_id = ?1), 0))",
+        params![playlist_id, track_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_track_from_playlist(
+    playlist_id: i64,
+    track_id: i64,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM playlist_tracks WHERE playlist_id = ?1 AND track_id = ?2",
+        params![playlist_id, track_id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_playlist_tracks(
+    playlist_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<Track>, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.* FROM tracks t
+             JOIN playlist_tracks pt ON pt.track_id = t.id
+             WHERE pt.playlist_id = ?1
+             ORDER BY pt.position",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![playlist_id], row_to_track)
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
 }

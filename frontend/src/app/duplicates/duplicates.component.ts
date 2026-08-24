@@ -1,4 +1,10 @@
-import { Component, OnInit, computed, signal } from "@angular/core";
+import {
+  Component,
+  OnInit,
+  computed,
+  signal,
+  WritableSignal,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ButtonModule } from "primeng/button";
@@ -13,7 +19,6 @@ import { ToastModule } from "primeng/toast";
 import { TooltipModule } from "primeng/tooltip";
 import { TreeModule } from "primeng/tree";
 import { MessageService, TreeNode } from "primeng/api";
-import { open } from "@tauri-apps/plugin-dialog";
 import { LibraryService } from "../core/services/library.service";
 import { PlayerService } from "../core/services/player.service";
 import { Track } from "../core/models/track.model";
@@ -51,13 +56,13 @@ export class DuplicatesComponent implements OnInit {
   deleteDialogVisible = signal(false);
   deleteStep = signal<"choose" | "confirm-file">("choose");
   pendingDelete = signal<Track | null>(null);
-  moveRoot = signal<string | null>(null);
-  folderTree = signal<TreeNode[]>([]);
-  selectedFolder = signal<TreeNode | null>(null);
-  loadingFolders = signal(false);
+  moveRoot: WritableSignal<string | null>;
+  folderTree: WritableSignal<TreeNode[]>;
+  selectedFolder: WritableSignal<TreeNode | null>;
+  loadingFolders: WritableSignal<boolean>;
   selectedTracks = signal<Set<number>>(new Set());
-  newFolderName = signal("");
-  creatingFolder = signal(false);
+  newFolderName: WritableSignal<string>;
+  creatingFolder: WritableSignal<boolean>;
   batchDialogVisible = signal(false);
   batchAction = signal<"delete_index" | "delete_file" | "move" | null>(null);
   batchItems = signal<DuplicateBatchItem[]>([]);
@@ -102,7 +107,14 @@ export class DuplicatesComponent implements OnInit {
     private library: LibraryService,
     public player: PlayerService,
     private messages: MessageService,
-  ) {}
+  ) {
+    this.moveRoot = this.library.moveRoot;
+    this.folderTree = this.library.folderTree;
+    this.selectedFolder = this.library.selectedFolder;
+    this.loadingFolders = this.library.loadingFolders;
+    this.newFolderName = this.library.newFolderName;
+    this.creatingFolder = this.library.creatingFolder;
+  }
 
   play(track: Track): void {
     this.player.play(track);
@@ -116,6 +128,7 @@ export class DuplicatesComponent implements OnInit {
     this.loading.set(true);
     try {
       this.groups.set(await this.library.findDuplicates(this.mode));
+      this.log(`Búsqueda duplicados: modo ${this.mode}, ${this.groups().length} grupos`);
     } catch (e) {
       this.messages.add({
         severity: "error",
@@ -143,6 +156,7 @@ export class DuplicatesComponent implements OnInit {
     if (!track) return;
     try {
       await this.library.removeDuplicate(track.id);
+      this.log(`Eliminado del índice: ${track.filename}`);
       this.messages.add({
         severity: "success",
         summary: "Track eliminado del índice",
@@ -168,6 +182,7 @@ export class DuplicatesComponent implements OnInit {
     if (!track) return;
     try {
       const path = await this.library.removeTrackAndFile(track.id);
+      this.log(`Eliminado disco: ${path}`);
       this.messages.add({
         severity: "success",
         summary: "Track y archivo eliminados",
@@ -188,6 +203,7 @@ export class DuplicatesComponent implements OnInit {
     const ids = group.tracks.map((t) => t.id);
     try {
       const removed = await this.library.removeDuplicatesExcept(keep.id, ids);
+      this.log(`Mantener mejor: ${keep.filename}, ${removed} duplicados eliminados`);
       this.messages.add({
         severity: "success",
         summary: "Duplicados limpiados",
@@ -229,30 +245,18 @@ export class DuplicatesComponent implements OnInit {
   onFolderSelect(
     event: TreeNode | TreeNode[] | null | undefined,
   ): void {
-    if (Array.isArray(event)) {
-      this.selectedFolder.set(event[0] ?? null);
-    } else {
-      this.selectedFolder.set(event ?? null);
-    }
+    this.library.onFolderSelect(event);
   }
 
   async loadFolderRoot(): Promise<void> {
-    const root = await open({ directory: true, multiple: false });
-    if (!root || Array.isArray(root)) return;
-    this.loadingFolders.set(true);
     try {
-      const node = await this.library.listSubfolders(root);
-      this.moveRoot.set(root);
-      this.folderTree.set([node as TreeNode]);
-      this.selectedFolder.set(node as TreeNode);
+      await this.library.loadFolderRoot();
     } catch (e) {
       this.messages.add({
         severity: "error",
         summary: "Error cargando carpetas",
         detail: String(e),
       });
-    } finally {
-      this.loadingFolders.set(false);
     }
   }
 
@@ -273,6 +277,46 @@ export class DuplicatesComponent implements OnInit {
         summary: "Archivo movido",
         detail: newPath,
       });
+      this.search();
+    } catch (e) {
+      this.messages.add({
+        severity: "error",
+        summary: "No se pudo mover",
+        detail: String(e),
+      });
+    }
+  }
+
+  async moveSelected(): Promise<void> {
+    const folder = this.selectedFolder();
+    if (!folder) {
+      this.messages.add({
+        severity: "warn",
+        summary: "Sin destino",
+        detail: "Selecciona una carpeta del árbol",
+      });
+      return;
+    }
+    const ids = Array.from(this.selectedTracks());
+    if (ids.length === 0) return;
+    const items: DuplicateBatchItem[] = [{ keep_id: -1, remove_ids: ids }];
+    try {
+      const result = await this.library.moveDuplicatesBatch(
+        items,
+        folder.data as string,
+      );
+      this.log(`Mover seleccionados: ${result.affected} tracks a ${folder.data}`);
+      const sizeMb = (result.freed_bytes / 1024 / 1024).toFixed(1);
+      const errors =
+        result.errors.length > 0
+          ? ` (${result.errors.length} errores)`
+          : "";
+      this.messages.add({
+        severity: result.errors.length ? "warn" : "success",
+        summary: "Movimiento completado",
+        detail: `${result.affected} track(s) movidos, ${sizeMb} MB${errors}`,
+      });
+      this.selectedTracks.set(new Set());
       this.search();
     } catch (e) {
       this.messages.add({
@@ -379,6 +423,7 @@ export class DuplicatesComponent implements OnInit {
 
     const sizeMb = (result.freed_bytes / 1024 / 1024).toFixed(1);
     const errors = result.errors.length > 0 ? ` (${result.errors.length} errores)` : "";
+    this.log(`Acción por lote: ${action}, ${result.affected} tracks, ${sizeMb} MB`);
     this.messages.add({
       severity: result.errors.length ? "warn" : "success",
       summary: "Acción por lote completada",
@@ -415,28 +460,6 @@ export class DuplicatesComponent implements OnInit {
     }
   }
 
-  private insertFolderNode(
-    nodes: TreeNode[],
-    parentData: string,
-    newNode: TreeNode,
-  ): TreeNode[] {
-    return nodes.map((node) => {
-      if (node.data === parentData) {
-        const children = [...(node.children ?? []), newNode].sort((a, b) =>
-          (a.label ?? "").localeCompare(b.label ?? ""),
-        );
-        return { ...node, children, expanded: true, leaf: false };
-      }
-      if (node.children && node.children.length > 0) {
-        return {
-          ...node,
-          children: this.insertFolderNode(node.children, parentData, newNode),
-        };
-      }
-      return { ...node };
-    });
-  }
-
   async createNewFolder(): Promise<void> {
     const root = this.moveRoot();
     if (!root) {
@@ -447,35 +470,25 @@ export class DuplicatesComponent implements OnInit {
       });
       return;
     }
-    const parent = (this.selectedFolder()?.data as string) ?? root;
-    const name = this.newFolderName().trim();
-    if (!name) return;
-    this.creatingFolder.set(true);
     try {
-      const newPath = await this.library.createFolder(parent, name);
-      this.messages.add({
-        severity: "success",
-        summary: "Carpeta creada",
-        detail: newPath,
-      });
-      this.newFolderName.set("");
-      const newNode: TreeNode = {
-        label: name,
-        data: newPath,
-        children: [],
-      };
-      this.folderTree.set(
-        this.insertFolderNode(this.folderTree(), parent, newNode),
-      );
-      this.selectedFolder.set(newNode);
+      const newPath = await this.library.createNewFolder();
+      if (newPath) {
+        this.messages.add({
+          severity: "success",
+          summary: "Carpeta creada",
+          detail: newPath,
+        });
+      }
     } catch (e) {
       this.messages.add({
         severity: "error",
         summary: "No se pudo crear la carpeta",
         detail: String(e),
       });
-    } finally {
-      this.creatingFolder.set(false);
     }
+  }
+
+  private log(message: string): void {
+    this.library.log("duplicados", message).catch(() => {});
   }
 }

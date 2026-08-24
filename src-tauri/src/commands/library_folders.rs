@@ -134,15 +134,21 @@ pub fn rescan_all(conn: &mut rusqlite::Connection, app: &tauri::AppHandle) -> Re
         added: 0,
         updated: 0,
         skipped: 0,
+        missing: 0,
         errors: Vec::new(),
     };
 
     for path in folders {
         match scanner::scan_folder(conn, &path, app) {
-            Ok(r) => {
+            Ok(mut r) => {
+                match scanner::validate_folder_tracks(conn, &path) {
+                    Ok(m) => r.missing = m,
+                    Err(e) => r.errors.push(format!("validación: {}", e)),
+                }
                 total.added += r.added;
                 total.updated += r.updated;
                 total.skipped += r.skipped;
+                total.missing += r.missing;
                 total.errors.extend(r.errors);
             }
             Err(e) => total.errors.push(format!("{}: {}", path, e)),
@@ -164,4 +170,28 @@ pub fn rescan_all_library_folders(
 ) -> Result<ScanResult, String> {
     let mut conn = state.db.lock().map_err(|e| e.to_string())?;
     rescan_all(&mut conn, &app)
+}
+
+#[tauri::command]
+pub fn rescan_library_folder(
+    id: i64,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<ScanResult, String> {
+    let mut conn = state.db.lock().map_err(|e| e.to_string())?;
+    let path: String = conn
+        .query_row(
+            "SELECT path FROM library_folders WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    let mut result = scanner::scan_folder(&mut conn, &path, &app)?;
+    result.missing = scanner::validate_folder_tracks(&mut conn, &path)?;
+    conn.execute(
+        "UPDATE library_folders SET last_scanned = datetime('now') WHERE id = ?1",
+        params![id],
+    )
+    .ok();
+    Ok(result)
 }

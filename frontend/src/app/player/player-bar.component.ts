@@ -92,16 +92,15 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
       const playablePath = await invoke<string>("get_playable_path", { path: track.path });
       this.ws = WaveSurfer.create({
         container: this.waveformRef.nativeElement,
-        height: 2,
-        waveColor: "transparent",
+        height: 48,
+        waveColor: "#475569",
         progressColor: "#3b82f6",
-        cursorColor: "transparent",
-        cursorWidth: 0,
-        barWidth: 0,
-        barGap: 0,
+        cursorColor: "#93c5fd",
+        cursorWidth: 2,
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 2,
         normalize: true,
-        backend: "MediaElement",
-        peaks: [new Float32Array([0, 0])],
         url: convertFileSrc(playablePath),
       });
 

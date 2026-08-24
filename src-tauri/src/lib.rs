@@ -3,16 +3,20 @@ mod commands;
 mod database;
 mod duplicates;
 mod identification;
+mod logger;
 mod metadata;
 mod models;
 mod scanner;
 
 use rusqlite::Connection;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::Manager;
 
 pub struct AppState {
     pub db: Mutex<Connection>,
+    pub db_path: PathBuf,
+    pub log_dir: PathBuf,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -23,9 +27,13 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
-            let conn = database::open(&data_dir.join("library.db"))?;
+            let db_path = data_dir.join("library.db");
+            let log_dir = data_dir.join("logs");
+            let conn = database::open(&db_path)?;
             app.manage(AppState {
                 db: Mutex::new(conn),
+                db_path,
+                log_dir,
             });
 
             // Rescan configured folders on startup in a background thread
@@ -51,6 +59,7 @@ pub fn run() {
             commands::library_folders::remove_library_folder,
             commands::library_folders::set_library_folder_enabled,
             commands::library_folders::rescan_all_library_folders,
+            commands::library_folders::rescan_library_folder,
             commands::library_folders::clean_library,
             commands::library_folders::clear_library,
             commands::find_duplicates,
@@ -64,7 +73,14 @@ pub fn run() {
             commands::get_playable_path,
             commands::list_subfolders,
             commands::create_folder,
-            commands::move_track_to_folder
+            commands::move_track_to_folder,
+            commands::log_event,
+            commands::create_playlist,
+            commands::get_playlists,
+            commands::delete_playlist,
+            commands::add_track_to_playlist,
+            commands::remove_track_from_playlist,
+            commands::get_playlist_tracks
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

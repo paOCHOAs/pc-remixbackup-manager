@@ -1,4 +1,11 @@
-import { Component, OnDestroy, OnInit, computed, signal } from "@angular/core";
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  signal,
+  WritableSignal,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -55,12 +62,12 @@ export class LibraryComponent implements OnInit, OnDestroy {
   selectedTracks = signal<Track[]>([]);
   editorVisible = signal(false);
   moveDialogVisible = signal(false);
-  folderTree = signal<TreeNode[]>([]);
-  selectedFolder = signal<TreeNode | null>(null);
-  moveRoot = signal<string | null>(null);
-  newFolderName = signal("");
-  creatingFolder = signal(false);
-  loadingFolders = signal(false);
+  folderTree: WritableSignal<TreeNode[]>;
+  selectedFolder: WritableSignal<TreeNode | null>;
+  moveRoot: WritableSignal<string | null>;
+  newFolderName: WritableSignal<string>;
+  creatingFolder: WritableSignal<boolean>;
+  loadingFolders: WritableSignal<boolean>;
   batchAction = signal<"delete_index" | "delete_file" | null>(null);
   batchDialogVisible = signal(false);
   trackDeleteDialogVisible = signal(false);
@@ -81,7 +88,14 @@ export class LibraryComponent implements OnInit, OnDestroy {
     private library: LibraryService,
     public player: PlayerService,
     private messages: MessageService,
-  ) {}
+  ) {
+    this.folderTree = this.library.folderTree;
+    this.selectedFolder = this.library.selectedFolder;
+    this.moveRoot = this.library.moveRoot;
+    this.newFolderName = this.library.newFolderName;
+    this.creatingFolder = this.library.creatingFolder;
+    this.loadingFolders = this.library.loadingFolders;
+  }
 
   playTrack(track: Track): void {
     this.player.play(track);
@@ -139,6 +153,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
           false,
         );
       }
+      this.log(`${removeFile ? "Eliminado disco" : "Eliminado índice"}: ${track.title || track.filename}`);
       this.messages.add({
         severity: "success",
         summary: track.title || track.filename,
@@ -224,6 +239,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
     try {
       await this.library.addLibraryFolder(folder as string);
       const result = await this.library.scanFolder(folder as string);
+      this.log(`Escaneo carpeta: ${folder} — +${result.added}, ~${result.updated}`);
       this.messages.add({
         severity: "success",
         summary: "Escaneo completado",
@@ -274,6 +290,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
       }
 
       this.mergeUpdates(updated);
+      this.log(`Metadata guardada: ${updated.length} tracks`);
       this.editorVisible.set(false);
       this.selectedTracks.set([]);
       this.messages.add({
@@ -322,89 +339,40 @@ export class LibraryComponent implements OnInit, OnDestroy {
   }
 
   async loadFolderRoot(): Promise<void> {
-    const root = await open({ directory: true, multiple: false });
-    if (!root || Array.isArray(root)) return;
-    this.loadingFolders.set(true);
     try {
-      const node = await this.library.listSubfolders(root);
-      this.moveRoot.set(root);
-      this.folderTree.set([node as TreeNode]);
-      this.selectedFolder.set(node as TreeNode);
+      await this.library.loadFolderRoot();
     } catch (e) {
       this.messages.add({
         severity: "error",
         summary: "Error cargando carpetas",
         detail: String(e),
       });
-    } finally {
-      this.loadingFolders.set(false);
     }
   }
 
   onFolderSelect(
     event: TreeNode | TreeNode[] | null | undefined,
   ): void {
-    if (Array.isArray(event)) {
-      this.selectedFolder.set(event[0] ?? null);
-    } else {
-      this.selectedFolder.set(event ?? null);
-    }
-  }
-
-  private insertFolderNode(
-    nodes: TreeNode[],
-    parentData: string,
-    newNode: TreeNode,
-  ): TreeNode[] {
-    return nodes.map((node) => {
-      if (node.data === parentData) {
-        const children = [...(node.children ?? []), newNode].sort((a, b) =>
-          (a.label ?? "").localeCompare(b.label ?? ""),
-        );
-        return { ...node, children, expanded: true, leaf: false };
-      }
-      if (node.children && node.children.length > 0) {
-        return {
-          ...node,
-          children: this.insertFolderNode(node.children, parentData, newNode),
-        };
-      }
-      return { ...node };
-    });
+    this.library.onFolderSelect(event);
   }
 
   async createNewFolder(): Promise<void> {
-    const root = this.moveRoot();
-    if (!root) return;
-    const parent = (this.selectedFolder()?.data as string) ?? root;
-    const name = this.newFolderName().trim();
-    if (!name) return;
-    this.creatingFolder.set(true);
     try {
-      const newPath = await this.library.createFolder(parent, name);
-      this.messages.add({
-        severity: "success",
-        summary: "Carpeta creada",
-        detail: newPath,
-      });
-      this.newFolderName.set("");
-      const newNode: TreeNode = {
-        label: name,
-        data: newPath,
-        children: [],
-      };
-      this.folderTree.set(
-        this.insertFolderNode(this.folderTree(), parent, newNode),
-      );
-      this.selectedFolder.set(newNode);
+      const newPath = await this.library.createNewFolder();
+      if (newPath) {
+        this.log(`Carpeta destino creada: ${newPath}`);
+        this.messages.add({
+          severity: "success",
+          summary: "Carpeta creada",
+          detail: newPath,
+        });
+      }
     } catch (e) {
       this.messages.add({
         severity: "error",
         summary: "No se pudo crear la carpeta",
         detail: String(e),
       });
-    } finally {
-      this.creatingFolder.set(false);
     }
   }
 
@@ -441,6 +409,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
         items,
         folder.data as string,
       );
+      this.log(`Mover seleccionados: ${result.affected} tracks a ${folder.data}`);
       const sizeMb = (result.freed_bytes / 1024 / 1024).toFixed(1);
       const errors =
         result.errors.length > 0
@@ -501,6 +470,7 @@ export class LibraryComponent implements OnInit, OnDestroy {
         result.errors.length > 0
           ? ` (${result.errors.length} errores)`
           : "";
+      this.log(`Eliminación en lote: ${result.affected} tracks (${this.batchAction()})`);
       this.messages.add({
         severity: result.errors.length ? "warn" : "success",
         summary: "Eliminación completada",
@@ -516,5 +486,9 @@ export class LibraryComponent implements OnInit, OnDestroy {
         detail: String(e),
       });
     }
+  }
+
+  private log(message: string): void {
+    this.library.log("library", message).catch(() => {});
   }
 }

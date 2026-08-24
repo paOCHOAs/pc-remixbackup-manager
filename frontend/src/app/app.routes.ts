@@ -10,8 +10,8 @@ export const routes: Routes = [
   {
     path: "playlists",
     loadComponent: () =>
-      import("./shared/placeholder/placeholder.component").then(
-        (m) => m.PlaceholderComponent,
+      import("./playlists/playlists.component").then(
+        (m) => m.PlaylistsComponent,
       ),
     data: { title: "Playlists y crates" },
   },

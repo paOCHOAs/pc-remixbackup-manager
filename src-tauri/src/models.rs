@@ -27,6 +27,7 @@ pub struct ScanResult {
     pub added: usize,
     pub updated: usize,
     pub skipped: usize,
+    pub missing: usize,
     pub errors: Vec<String>,
 }
 
@@ -35,6 +36,13 @@ pub struct ScanProgress {
     pub current: usize,
     pub total: usize,
     pub current_file: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Playlist {
+    pub id: i64,
+    pub name: String,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
