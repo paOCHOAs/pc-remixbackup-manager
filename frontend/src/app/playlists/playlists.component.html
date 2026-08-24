@@ -1,115 +1,122 @@
 <p-toast />
 
-<div class="playlists-header">
-  <h2>Playlists</h2>
-  <div class="new-playlist">
-    <input
-      pInputText
-      [(ngModel)]="newName"
-      placeholder="Nueva playlist"
-      (keydown.enter)="createPlaylist()"
-    />
-    <p-button
-      icon="pi pi-plus"
-      label="Crear"
-      (onClick)="createPlaylist()"
-    />
-  </div>
-</div>
+<app-page-layout>
+  <app-page-header title="Playlists">
+    <div actions class="new-playlist">
+      <input
+        pInputText
+        [(ngModel)]="newName"
+        placeholder="Nueva playlist"
+        (keydown.enter)="createPlaylist()"
+      />
+      <p-button
+        icon="pi pi-plus"
+        label="Crear"
+        (onClick)="createPlaylist()"
+      />
+    </div>
+  </app-page-header>
 
-<div class="playlists-layout">
-  <aside class="playlist-list">
-    @if (playlists().length === 0 && !loading()) {
-      <p class="empty">No hay playlists. Crea la primera.</p>
-    }
-    <ul>
-      @for (playlist of playlists(); track playlist.id) {
-        <li
-          [class.active]="selectedPlaylist()?.id === playlist.id"
-          (click)="selectPlaylist(playlist)"
-        >
-          <span>{{ playlist.name }}</span>
-          <p-button
-            icon="pi pi-trash"
-            severity="danger"
-            [text]="true"
-            (onClick)="deletePlaylist(playlist); $event.stopPropagation()"
+  <app-two-column-layout sidebarWidth="16rem">
+    <aside sidebar class="playlist-list">
+      @if (playlists().length === 0 && !loading()) {
+        <app-empty-state
+          icon="pi-inbox"
+          message="No hay playlists. Crea la primera."
+        />
+      }
+      <ul>
+        @for (playlist of playlists(); track playlist.id) {
+          <li
+            [class.active]="selectedPlaylist()?.id === playlist.id"
+            (click)="selectPlaylist(playlist)"
+          >
+            <span>{{ playlist.name }}</span>
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              (onClick)="deletePlaylist(playlist); $event.stopPropagation()"
+            />
+          </li>
+        }
+      </ul>
+    </aside>
+
+    <main class="playlist-detail">
+      @if (selectedPlaylist(); as p) {
+        <h3>{{ p.name }}</h3>
+
+        <div class="add-track">
+          <input
+            pInputText
+            [(ngModel)]="searchText"
+            placeholder="Buscar track para agregar..."
+            (keydown.enter)="searchTracks()"
           />
-        </li>
-      }
-    </ul>
-  </aside>
-
-  <main class="playlist-detail">
-    @if (selectedPlaylist(); as p) {
-      <h3>{{ p.name }}</h3>
-
-      <div class="add-track">
-        <input
-          pInputText
-          [(ngModel)]="searchText"
-          placeholder="Buscar track para agregar..."
-          (keydown.enter)="searchTracks()"
-        />
-        <p-button
-          icon="pi pi-search"
-          label="Buscar"
-          (onClick)="searchTracks()"
-        />
-      </div>
-
-      @if (searchResults().length > 0) {
-        <div class="search-results">
-          <p-table [value]="searchResults()" styleClass="p-datatable-sm">
-            <ng-template #body let-track>
-              <tr>
-                <td>{{ track.title || track.filename }}</td>
-                <td>{{ track.artist || "—" }}</td>
-                <td style="width: 4rem">
-                  <p-button
-                    icon="pi pi-plus"
-                    [text]="true"
-                    (onClick)="addTrack(track)"
-                  />
-                </td>
-              </tr>
-            </ng-template>
-          </p-table>
+          <p-button
+            icon="pi pi-search"
+            label="Buscar"
+            (onClick)="searchTracks()"
+          />
         </div>
-      }
 
-      <p-table [value]="tracks()" styleClass="p-datatable-sm" [loading]="loadingTracks()">
-        <ng-template #header>
-          <tr>
-            <th>Track</th>
-            <th>Artista</th>
-            <th>Duración</th>
-            <th style="width: 6rem"></th>
-          </tr>
-        </ng-template>
-        <ng-template #body let-track>
-          <tr (dblclick)="play(track)">
-            <td>{{ track.title || track.filename }}</td>
-            <td>{{ track.artist || "—" }}</td>
-            <td>{{ formatDuration(track.duration_secs) }}</td>
-            <td>
-              <p-button
-                icon="pi pi-trash"
-                [text]="true"
-                severity="danger"
-                (onClick)="removeTrack(track)"
-              />
-            </td>
-          </tr>
-        </ng-template>
-        <ng-template #emptymessage>
-          <tr>
-            <td colspan="4" class="empty">Playlist vacía. Agrega tracks desde la búsqueda.</td>
-          </tr>
-        </ng-template>
-      </p-table>
-    } @else {
-      <p class="empty">Selecciona una playlist para ver sus tracks.</p>
-    }
-  </main>
-</div>
+        @if (searchResults().length > 0) {
+          <div class="search-results">
+            <p-table [value]="searchResults()" styleClass="p-datatable-sm">
+              <ng-template #body let-track>
+                <tr>
+                  <td>{{ track.title || track.filename }}</td>
+                  <td>{{ track.artist || "—" }}</td>
+                  <td style="width: 4rem">
+                    <p-button
+                      icon="pi pi-plus"
+                      [text]="true"
+                      (onClick)="addTrack(track)"
+                    />
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          </div>
+        }
+
+        <p-table [value]="tracks()" styleClass="p-datatable-sm" [loading]="loadingTracks()">
+          <ng-template #header>
+            <tr>
+              <th>Track</th>
+              <th>Artista</th>
+              <th>Duración</th>
+              <th style="width: 6rem"></th>
+            </tr>
+          </ng-template>
+          <ng-template #body let-track>
+            <tr (dblclick)="play(track)">
+              <td>{{ track.title || track.filename }}</td>
+              <td>{{ track.artist || "—" }}</td>
+              <td>{{ formatDuration(track.duration_secs) }}</td>
+              <td>
+                <p-button
+                  icon="pi pi-trash"
+                  [text]="true"
+                  severity="danger"
+                  (onClick)="removeTrack(track)"
+                />
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template #emptymessage>
+            <tr>
+              <td colspan="4" class="empty">Playlist vacía. Agrega tracks desde la búsqueda.</td>
+            </tr>
+          </ng-template>
+        </p-table>
+      } @else {
+        <app-empty-state
+          icon="pi-list"
+          message="Selecciona una playlist para ver sus tracks."
+        />
+      }
+    </main>
+  </app-two-column-layout>
+</app-page-layout>

@@ -11,6 +11,8 @@ import { ToastModule } from "primeng/toast";
 import { ConfirmationService, MessageService } from "primeng/api";
 import { LibraryService } from "../core/services/library.service";
 import { LibraryFolder } from "../core/models/library-folder.model";
+import { PageLayoutComponent } from "../shared/layout/page-layout.component";
+import { PageHeaderComponent } from "../shared/layout/page-header.component";
 
 @Component({
   selector: "app-folders",
@@ -24,6 +26,8 @@ import { LibraryFolder } from "../core/models/library-folder.model";
     ProgressBarModule,
     TableModule,
     ToastModule,
+    PageLayoutComponent,
+    PageHeaderComponent,
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: "./folders.component.html",

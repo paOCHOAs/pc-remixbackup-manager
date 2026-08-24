@@ -1,76 +1,77 @@
 <p-toast />
 <p-confirmDialog />
 
-<div class="folders-header">
-  <h2>Carpetas de biblioteca</h2>
-  <div class="actions">
-    <p-button
-      icon="pi pi-plus"
-      label="Añadir carpeta"
-      (onClick)="addFolder()"
-    />
-    <p-button
-      icon="pi pi-refresh"
-      label="Re-escanear todo"
-      [loading]="scanning()"
-      (onClick)="rescan()"
-    />
-    <p-button
-      icon="pi pi-trash"
-      label="Limpiar huérfanos"
-      severity="danger"
-      (onClick)="clean()"
-    />
-    <p-button
-      icon="pi pi-eraser"
-      label="Vaciar biblioteca"
-      severity="danger"
-      [outlined]="true"
-      (onClick)="confirmClear()"
-    />
-  </div>
-</div>
+<app-page-layout>
+  <app-page-header title="Carpetas de biblioteca">
+    <div actions>
+      <p-button
+        icon="pi pi-plus"
+        label="Añadir carpeta"
+        (onClick)="addFolder()"
+      />
+      <p-button
+        icon="pi pi-refresh"
+        label="Re-escanear todo"
+        [loading]="scanning()"
+        (onClick)="rescan()"
+      />
+      <p-button
+        icon="pi pi-trash"
+        label="Limpiar huérfanos"
+        severity="danger"
+        (onClick)="clean()"
+      />
+      <p-button
+        icon="pi pi-eraser"
+        label="Vaciar biblioteca"
+        severity="danger"
+        [outlined]="true"
+        (onClick)="confirmClear()"
+      />
+    </div>
+  </app-page-header>
 
-<p-table [value]="folders()" styleClass="p-datatable-sm">
-  <ng-template #header>
-    <tr>
-      <th>Carpeta</th>
-      <th style="width: 8rem">Activa</th>
-      <th style="width: 10rem">Último escaneo</th>
-      <th style="width: 4rem"></th>
-    </tr>
-  </ng-template>
-  <ng-template #body let-folder>
-    <tr>
-      <td>{{ folder.path }}</td>
-      <td>
-        <p-toggleswitch
-          [(ngModel)]="folder.enabled"
-          (onChange)="toggleEnabled(folder)"
-        />
-      </td>
-      <td>{{ folder.last_scanned || "—" }}</td>
-      <td>
-        <p-button
-          icon="pi pi-refresh"
-          [text]="true"
-          [loading]="rescanningId() === folder.id"
-          (onClick)="rescanFolder(folder)"
-        />
-        <p-button
-          icon="pi pi-trash"
-          severity="danger"
-          [text]="true"
-          (onClick)="remove(folder)"
-        />
-      </td>
-    </tr>
-  </ng-template>
-  <ng-template #emptymessage>
-    <tr>
-      <td colspan="4" class="empty">
-        No hay carpetas configuradas. Añade la primera para empezar.
-      </td>
-    </tr>
-  </ng-template>
-</p-table>
+  <p-table [value]="folders()" styleClass="p-datatable-sm">
+    <ng-template #header>
+      <tr>
+        <th>Carpeta</th>
+        <th style="width: 8rem">Activa</th>
+        <th style="width: 10rem">Último escaneo</th>
+        <th style="width: 4rem"></th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-folder>
+      <tr>
+        <td>{{ folder.path }}</td>
+        <td>
+          <p-toggleswitch
+            [(ngModel)]="folder.enabled"
+            (onChange)="toggleEnabled(folder)"
+          />
+        </td>
+        <td>{{ folder.last_scanned || "—" }}</td>
+        <td>
+          <p-button
+            icon="pi pi-refresh"
+            [text]="true"
+            [loading]="rescanningId() === folder.id"
+            (onClick)="rescanFolder(folder)"
+          />
+          <p-button
+            icon="pi pi-trash"
+            severity="danger"
+            [text]="true"
+            (onClick)="remove(folder)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="4" class="empty">
+          No hay carpetas configuradas. Añade la primera para empezar.
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+</app-page-layout>

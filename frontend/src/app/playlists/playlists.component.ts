@@ -11,6 +11,10 @@ import { LibraryService } from "../core/services/library.service";
 import { PlayerService } from "../core/services/player.service";
 import { Playlist } from "../core/models/playlist.model";
 import { Track } from "../core/models/track.model";
+import { PageLayoutComponent } from "../shared/layout/page-layout.component";
+import { PageHeaderComponent } from "../shared/layout/page-header.component";
+import { TwoColumnLayoutComponent } from "../shared/layout/two-column-layout.component";
+import { EmptyStateComponent } from "../shared/layout/empty-state.component";
 
 @Component({
   selector: "app-playlists",
@@ -23,6 +27,10 @@ import { Track } from "../core/models/track.model";
     TableModule,
     TagModule,
     ToastModule,
+    PageLayoutComponent,
+    PageHeaderComponent,
+    TwoColumnLayoutComponent,
+    EmptyStateComponent,
   ],
   providers: [MessageService],
   templateUrl: "./playlists.component.html",
