@@ -93,9 +93,9 @@ export class PlayerBarComponent implements AfterViewInit, OnDestroy {
       this.ws = WaveSurfer.create({
         container: this.waveformRef.nativeElement,
         height: 48,
-        waveColor: "#475569",
-        progressColor: "#3b82f6",
-        cursorColor: "#93c5fd",
+        waveColor: "#5a5a5a",
+        progressColor: "#1ed760",
+        cursorColor: "#ffffff",
         cursorWidth: 2,
         barWidth: 2,
         barGap: 1,

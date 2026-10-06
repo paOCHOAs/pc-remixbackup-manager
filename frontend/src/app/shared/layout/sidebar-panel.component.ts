@@ -30,10 +30,9 @@ import { Component, input } from "@angular/core";
       flex-direction: column;
       flex: 1 1 0;
       min-height: 0;
-      border: 1px solid var(--p-content-border-color, #334155);
-      border-radius: 0.5rem;
-      padding: 0.75rem;
-      background: var(--p-content-background, #18181b);
+      border-radius: var(--radius-cards, 6px);
+      padding: var(--spacing-12, 12px);
+      background: var(--surface-graphite-control, #1f1f1f);
       overflow: hidden;
     }
 
@@ -47,8 +46,8 @@ import { Component, input } from "@angular/core";
 
     .panel-header h3 {
       margin: 0;
-      font-size: 1rem;
-      font-weight: 600;
+      font-size: var(--text-title, 16px);
+      font-weight: 700;
     }
 
     .panel-actions {

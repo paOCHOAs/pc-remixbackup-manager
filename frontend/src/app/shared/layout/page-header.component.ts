@@ -20,15 +20,15 @@ import { Component, input } from "@angular/core";
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 1rem;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--p-content-border-color, #334155);
+      gap: var(--spacing-16, 16px);
+      padding: var(--spacing-16, 16px) var(--spacing-16, 16px) var(--spacing-12, 12px);
     }
 
     h2 {
       margin: 0;
-      font-size: 1.25rem;
-      font-weight: 600;
+      font-size: var(--text-heading, 24px);
+      line-height: 1.2;
+      font-weight: 700;
     }
 
     .actions {

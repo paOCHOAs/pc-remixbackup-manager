@@ -3,9 +3,8 @@
   align-items: center;
   gap: 1rem;
   height: 72px;
-  padding: 0 1rem;
-  border-top: 1px solid var(--p-content-border-color, #333);
-  background: var(--p-content-background, #18181b);
+  padding: 0 var(--spacing-16);
+  background: var(--surface-void-canvas);
 }
 
 .player-bar.hidden {
@@ -29,7 +28,7 @@
 
 .track-info .artist {
   font-size: 0.75rem;
-  opacity: 0.7;
+  color: var(--color-cloud-gray);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
